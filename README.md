@@ -1,5 +1,10 @@
 # Aether
 
+[![CI](https://github.com/n-3-0-l-d-3-v/aether-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/n-3-0-l-d-3-v/aether-platform/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-green)](LICENSE)
+[![Runtime dependencies: none](https://img.shields.io/badge/runtime%20dependencies-none-brightgreen)](pyproject.toml)
+
 **Evidence-first binary and firmware analysis.**
 
 Aether sits on top of mature engines — Ghidra headless, binwalk — and
@@ -111,8 +116,14 @@ python -m pytest              # 172 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
-The suite generates its own sample binaries on first run. The PE-specific tests
-skip cleanly when no C compiler is present.
+The suite generates its own sample binaries on first run. PE-specific tests skip
+cleanly on hosts that cannot produce a PE - note that a native `gcc` on Linux
+compiles the sample into an ELF, so presence of a compiler is not enough and the
+output is checked for an `MZ` header. Install a `mingw-w64` cross-compiler for
+PE coverage on Linux.
+
+CI runs the suite, the gate demonstration, an export-determinism check, and the
+evaluation suites on Linux, Windows, and macOS across Python 3.10 and 3.12.
 
 ## What it looks like
 
