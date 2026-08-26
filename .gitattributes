@@ -1,0 +1,21 @@
+# Normalise line endings in the repository to LF, regardless of the platform a
+# contributor works on. Without this, a Windows checkout commits CRLF and every
+# subsequent Linux diff is the whole file.
+* text=auto eol=lf
+
+# AetherExport.py runs inside Ghidra's Jython interpreter; keep it LF so it is
+# byte-identical wherever it is copied to.
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.toml text eol=lf
+*.c text eol=lf
+
+# Generated samples are ignored, but should anyone commit one deliberately it
+# must never be line-ending mangled.
+*.elf binary
+*.exe binary
+*.bin binary
+*.so binary
+*.db binary
