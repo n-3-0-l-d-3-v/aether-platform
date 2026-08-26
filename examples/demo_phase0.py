@@ -41,6 +41,20 @@ GHIDRA_EXPORT = os.path.join(REPO_ROOT, "tests", "fixtures", "ghidra", "firmware
 RESULTS: list[tuple[str, bool, str]] = []
 
 
+def have_pe_sample() -> bool:
+    """True only when a real PE is sitting at the PE sample path.
+
+    The filename is not evidence. A native gcc on Linux compiles the demo
+    source into an ELF and the test fixtures leave it at this path, so
+    checking existence alone made the demo assert PE-ness about an ELF.
+    """
+    try:
+        with open(PE, "rb") as handle:
+            return handle.read(2) == b"MZ"
+    except OSError:
+        return False
+
+
 def check(name: str, condition: bool, detail: str = "") -> bool:
     RESULTS.append((name, bool(condition), detail))
     mark = "PASS" if condition else "FAIL"
@@ -62,10 +76,13 @@ def build_samples() -> None:
         _run_script(os.path.join(REPO_ROOT, "tests", "fixtures", "make_ghidra_fixture.py"))
     check("ELF sample present", os.path.isfile(ELF), os.path.basename(ELF))
     check("firmware sample present", os.path.isfile(FIRMWARE), os.path.basename(FIRMWARE))
-    if os.path.isfile(PE):
+    if have_pe_sample():
         print(f"  [ok  ] PE sample present  -  {os.path.basename(PE)}")
     else:
-        print("  [skip] PE sample absent (no compiler); PE checks will be skipped")
+        print(
+            "  [skip] no PE sample on this host; PE checks will be skipped "
+            "(a native gcc on Linux emits ELF - install mingw-w64 for PE coverage)"
+        )
 
 
 def _run_script(path: str, *args: str) -> None:
@@ -108,7 +125,7 @@ def main() -> int:
             f"{project.count_artifacts(kind='import', object_id=elf_object)} imports",
         )
 
-        if os.path.isfile(PE):
+        if have_pe_sample():
             pe_result = TriageAdapter().analyze(project, PE, logical_path="bin/diagnostics.exe")
             pe_file = project.get_artifact(pe_result.objects[0])
             check(
@@ -117,7 +134,7 @@ def main() -> int:
                 f"{pe_file.data.get('media_type')}",
             )
         else:
-            print("  [skip] PE analysis (no compiler on this machine)")
+            print("  [skip] PE analysis (no PE-emitting toolchain on this host)")
 
         # -- gate: Ghidra headless results imported ------------------------
         heading("2. Ghidra headless bridge")

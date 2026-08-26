@@ -86,12 +86,17 @@ def pe_sample() -> str:
             pytest.skip(f"{compiler} could not build the PE sample: {exc}")
 
     with open(PE_SAMPLE, "rb") as handle:
-        if handle.read(2) != b"MZ":
-            pytest.skip(
-                "the local toolchain does not emit PE executables "
-                "(a native gcc on Linux produces ELF); install a mingw-w64 "
-                "cross-compiler for PE coverage"
-            )
+        is_pe = handle.read(2) == b"MZ"
+    if not is_pe:
+        # Remove it rather than leaving an ELF sitting at a .exe path, where
+        # anything that trusts the filename - the gate demo, for one - would
+        # go on to assert PE-ness about it.
+        os.remove(PE_SAMPLE)
+        pytest.skip(
+            "the local toolchain does not emit PE executables "
+            "(a native gcc on Linux produces ELF); install a mingw-w64 "
+            "cross-compiler for PE coverage"
+        )
     return PE_SAMPLE
 
 
