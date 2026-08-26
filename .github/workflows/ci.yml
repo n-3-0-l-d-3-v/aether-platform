@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Aether has no runtime dependencies by design, so only the test runner
+      # is installed here. If this step ever grows, ADR 0001 needs revisiting.
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Verify the package really has no runtime dependencies
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); import aether.cli, aether.mcp.server, aether.eval.harness; print('imports clean')"
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Run the Phase 0 gate demonstration
+        run: python examples/demo_phase0.py
+
+  determinism:
+    name: export determinism
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The Git-friendly export is only useful if it is reproducible. This
+      # builds two projects from scratch and fails if their graph digests
+      # differ, which is the property the whole export format exists for.
+      - name: Two independent analyses must produce identical graphs
+        run: |
+          python examples/src/build_elf_sample.py examples/firmware_agent.elf
+          python cli/aether.py init ./run-a --name determinism
+          python cli/aether.py -P ./run-a analyze examples/firmware_agent.elf --path bin/agent
+          python cli/aether.py -P ./run-a --json export ./out-a > /dev/null
+          python cli/aether.py init ./run-b --name determinism
+          python cli/aether.py -P ./run-b analyze examples/firmware_agent.elf --path bin/agent
+          python cli/aether.py -P ./run-b --json export ./out-b > /dev/null
+          diff -r ./out-a/graph ./out-b/graph
+          echo "graph/ is byte-identical across independent analyses"
+
+  evaluation:
+    name: ground-truth evaluation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Sample binaries are generated rather than committed, and `aether eval`
+      # deliberately does not build them for you - it points at the generators
+      # instead. So build them explicitly here.
+      - name: Build the evaluation targets
+        run: |
+          python examples/src/build_elf_sample.py examples/firmware_agent.elf
+          python examples/src/build_firmware_sample.py examples/demo_firmware.bin
+
+      - name: Score claims against ground truth
+        run: python cli/aether.py eval
