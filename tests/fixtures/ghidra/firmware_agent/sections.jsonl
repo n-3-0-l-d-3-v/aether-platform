@@ -1,0 +1,5 @@
+{"addr_end":4194620,"addr_start":4194592,"initialized":true,"name":".interp","permissions":"r"}
+{"addr_end":4194752,"addr_start":4194624,"initialized":true,"name":".text","permissions":"rx"}
+{"addr_end":4195132,"addr_start":4194752,"initialized":true,"name":".rodata","permissions":"r"}
+{"addr_end":4195250,"addr_start":4195136,"initialized":true,"name":".dynstr","permissions":"r"}
+{"addr_end":4195576,"addr_start":4195264,"initialized":true,"name":".dynsym","permissions":"r"}

@@ -1,0 +1,26 @@
+{
+  "address_size": 64,
+  "compiler_spec": "gcc",
+  "counts": {
+    "decompilation": 2,
+    "exports": 4,
+    "functions": 12,
+    "imports": 8,
+    "sections": 5,
+    "strings": 11,
+    "symbols": 4,
+    "xrefs": 11
+  },
+  "decompiled": 2,
+  "endian": "little",
+  "executable_format": "Executable and Linking Format (ELF)",
+  "executable_md5": "c352fdd9dcda462c25e82ca969d7b2b3",
+  "executable_path": "/examples/firmware_agent.elf",
+  "executable_sha256": "f4e90c138747ae48ebb88df63acf908604267d4b4c43a4b9fa2cd04fa53a7c52",
+  "format": "aether.ghidra.export/1",
+  "ghidra_version": "11.1.2",
+  "image_base": 4194304,
+  "language_id": "x86:LE:64:default",
+  "processor": "x86",
+  "program": "firmware_agent.elf"
+}

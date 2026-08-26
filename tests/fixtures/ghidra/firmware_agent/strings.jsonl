@@ -1,0 +1,11 @@
+{"addr":4194752,"encoding":"ascii","length":20,"text":"AKIAIOSFODNN7EXAMPLE"}
+{"addr":4194773,"encoding":"ascii","length":59,"text":"BusyBox v1.31.1 (2020-04-12 15:00:00 UTC) multi-call binary"}
+{"addr":4194833,"encoding":"ascii","length":27,"text":"OpenSSL 1.0.2u  20 Dec 2019"}
+{"addr":4194861,"encoding":"ascii","length":17,"text":"Dropbear v2019.78"}
+{"addr":4194879,"encoding":"ascii","length":47,"text":"mysql://svcuser:hunter2@10.4.0.9:3306/telemetry"}
+{"addr":4194927,"encoding":"ascii","length":31,"text":"-----BEGIN RSA PRIVATE KEY-----"}
+{"addr":4194959,"encoding":"ascii","length":66,"text":"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDb1example0key0material0here"}
+{"addr":4195026,"encoding":"ascii","length":26,"text":"/etc/config/telemetry.conf"}
+{"addr":4195053,"encoding":"ascii","length":26,"text":"firmware-agent starting up"}
+{"addr":4195080,"encoding":"ascii","length":12,"text":"ping -c 1 %s"}
+{"addr":4195093,"encoding":"ascii","length":38,"text":"Linux version 4.14.98 (buildbot@node7)"}

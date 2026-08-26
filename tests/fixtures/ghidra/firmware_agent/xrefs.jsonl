@@ -1,0 +1,11 @@
+{"from_addr":4194628,"from_function":"handle_name","ref_type":"call","to_addr":5242928,"to_function":"strcpy"}
+{"from_addr":4194628,"from_function":"handle_name","ref_type":"call","to_addr":5242888,"to_function":"__stack_chk_fail"}
+{"from_addr":4194652,"from_function":"run_diagnostics","ref_type":"call","to_addr":5242936,"to_function":"system"}
+{"from_addr":4194652,"from_function":"run_diagnostics","ref_type":"call","to_addr":5242880,"to_function":"__printf_chk"}
+{"from_addr":4194676,"from_function":"weak_token","ref_type":"call","to_addr":5242920,"to_function":"srand"}
+{"from_addr":4194676,"from_function":"weak_token","ref_type":"call","to_addr":5242912,"to_function":"rand"}
+{"from_addr":4194692,"from_function":"main","ref_type":"call","to_addr":5242904,"to_function":"printf"}
+{"from_addr":4194692,"from_function":"main","ref_type":"call","to_addr":4194624,"to_function":"handle_name"}
+{"from_addr":4194692,"from_function":"main","ref_type":"call","to_addr":4194648,"to_function":"run_diagnostics"}
+{"from_addr":4194692,"from_function":"main","ref_type":"call","to_addr":4194672,"to_function":"weak_token"}
+{"from_addr":4194696,"from_function":"main","ref_type":"data","to_addr":4194752,"to_function":""}

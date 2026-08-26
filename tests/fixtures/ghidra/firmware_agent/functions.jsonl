@@ -1,0 +1,12 @@
+{"addr_end":4194647,"addr_start":4194624,"calling_convention":"__stdcall","is_external":false,"is_thunk":false,"name":"handle_name","param_count":1,"signature":"undefined handle_name(void)","size":24}
+{"addr_end":4194671,"addr_start":4194648,"calling_convention":"__stdcall","is_external":false,"is_thunk":false,"name":"run_diagnostics","param_count":1,"signature":"undefined run_diagnostics(void)","size":24}
+{"addr_end":4194687,"addr_start":4194672,"calling_convention":"__stdcall","is_external":false,"is_thunk":false,"name":"weak_token","param_count":0,"signature":"undefined weak_token(void)","size":16}
+{"addr_end":4194727,"addr_start":4194688,"calling_convention":"__stdcall","is_external":false,"is_thunk":false,"name":"main","param_count":0,"signature":"undefined main(void)","size":40}
+{"addr_end":5242887,"addr_start":5242880,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"__printf_chk","param_count":0,"signature":"undefined __printf_chk()","size":8}
+{"addr_end":5242895,"addr_start":5242888,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"__stack_chk_fail","param_count":0,"signature":"undefined __stack_chk_fail()","size":8}
+{"addr_end":5242903,"addr_start":5242896,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"memcpy","param_count":0,"signature":"undefined memcpy()","size":8}
+{"addr_end":5242911,"addr_start":5242904,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"printf","param_count":0,"signature":"undefined printf()","size":8}
+{"addr_end":5242919,"addr_start":5242912,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"rand","param_count":0,"signature":"undefined rand()","size":8}
+{"addr_end":5242927,"addr_start":5242920,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"srand","param_count":0,"signature":"undefined srand()","size":8}
+{"addr_end":5242935,"addr_start":5242928,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"strcpy","param_count":0,"signature":"undefined strcpy()","size":8}
+{"addr_end":5242943,"addr_start":5242936,"calling_convention":"__stdcall","is_external":true,"is_thunk":true,"name":"system","param_count":0,"signature":"undefined system()","size":8}

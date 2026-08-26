@@ -1,0 +1,8 @@
+{"addr":5242880,"library":"libc.so.6","name":"__printf_chk"}
+{"addr":5242888,"library":"libc.so.6","name":"__stack_chk_fail"}
+{"addr":5242896,"library":"libc.so.6","name":"memcpy"}
+{"addr":5242904,"library":"libc.so.6","name":"printf"}
+{"addr":5242912,"library":"libc.so.6","name":"rand"}
+{"addr":5242920,"library":"libc.so.6","name":"srand"}
+{"addr":5242928,"library":"libc.so.6","name":"strcpy"}
+{"addr":5242936,"library":"libc.so.6","name":"system"}
