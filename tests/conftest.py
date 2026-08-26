@@ -47,21 +47,51 @@ def elf_sample() -> str:
 
 @pytest.fixture(scope="session")
 def pe_sample() -> str:
-    """A real PE, compiled locally. Skipped where no compiler is available."""
+    """A real PE, compiled locally.
+
+    Skipped rather than failed when the host cannot produce one. A plain ``gcc``
+    on Linux happily compiles this source, but emits an ELF - so the presence of
+    a compiler is not enough, and the output has to be checked. Preferring a
+    mingw cross-compiler first means a Linux host with one installed still gets
+    real PE coverage.
+    """
+    from shutil import which
+
     if not os.path.isfile(PE_SAMPLE):
         source = os.path.join(EXAMPLES, "src", "vulnerable_demo.c")
-        compiler = None
-        for candidate in ("gcc", "x86_64-w64-mingw32-gcc", "clang", "cc"):
-            from shutil import which
-
-            if which(candidate):
-                compiler = candidate
-                break
+        compiler = next(
+            (
+                candidate
+                for candidate in (
+                    "x86_64-w64-mingw32-gcc",
+                    "i686-w64-mingw32-gcc",
+                    "gcc",
+                    "clang",
+                    "cc",
+                )
+                if which(candidate)
+            ),
+            None,
+        )
         if compiler is None:
             pytest.skip("no C compiler available to build the PE sample")
-        subprocess.run(
-            [compiler, "-O0", "-g0", "-o", PE_SAMPLE, source], check=True, timeout=180
-        )
+        try:
+            subprocess.run(
+                [compiler, "-O0", "-g0", "-o", PE_SAMPLE, source],
+                check=True,
+                timeout=180,
+                capture_output=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            pytest.skip(f"{compiler} could not build the PE sample: {exc}")
+
+    with open(PE_SAMPLE, "rb") as handle:
+        if handle.read(2) != b"MZ":
+            pytest.skip(
+                "the local toolchain does not emit PE executables "
+                "(a native gcc on Linux produces ELF); install a mingw-w64 "
+                "cross-compiler for PE coverage"
+            )
     return PE_SAMPLE
 
 
