@@ -1,0 +1,116 @@
+{
+  "name": "firmware_image",
+  "description": "Ground truth for examples/demo_firmware.bin: a uImage header, padding, and a gzip-compressed cpio root filesystem. Expectations cover the unpack chain (offset scan, decompress, archive parse) and the per-file findings attributed to the extracted members rather than to the container. No target digest is pinned because the image embeds a locally compiled PE, whose bytes differ per toolchain.",
+  "target": {
+    "path": "examples/demo_firmware.bin",
+    "logical_path": "demo_firmware.bin"
+  },
+  "pipeline": ["firmware"],
+  "expectations": [
+    {
+      "id": "extracted-elf-binary",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "bin/firmware_agent", "format": "elf" },
+      "min_confidence": 0.9,
+      "evidence_kind": "file"
+    },
+    {
+      "id": "extracted-config",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "etc/telemetry.conf" },
+      "min_confidence": 0.9,
+      "evidence_kind": "file"
+    },
+    {
+      "id": "extracted-host-key",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "etc/dropbear/dropbear_rsa_host_key.pem" },
+      "min_confidence": 0.9
+    },
+    {
+      "id": "extracted-banner",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "etc/banner" },
+      "min_confidence": 0.9
+    },
+    {
+      "id": "extracted-version-file",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "usr/share/version" },
+      "min_confidence": 0.9
+    },
+    {
+      "id": "github-token-in-config",
+      "predicate": "contains_hardcoded_secret",
+      "match": { "secret_kind": "api_token", "detector": "rule:github-token" },
+      "subject_path": "etc/telemetry.conf",
+      "min_confidence": 0.9,
+      "evidence_kind": "string"
+    },
+    {
+      "id": "postgres-credentials-in-config",
+      "predicate": "contains_hardcoded_secret",
+      "match": { "secret_kind": "connection_string" },
+      "subject_path": "etc/telemetry.conf",
+      "min_confidence": 0.85,
+      "evidence_kind": "string"
+    },
+    {
+      "id": "private-key-in-dropbear-file",
+      "predicate": "contains_hardcoded_secret",
+      "match": { "secret_kind": "private_key", "detector": "rule:pem-private-key" },
+      "subject_path": "etc/dropbear/dropbear_rsa_host_key.pem",
+      "min_confidence": 0.9,
+      "evidence_kind": "string"
+    },
+    {
+      "id": "busybox-in-banner",
+      "predicate": "embeds_component",
+      "match": { "component": "busybox", "version": "1.31.1" },
+      "subject_path": "etc/banner",
+      "min_confidence": 0.9
+    },
+    {
+      "id": "kernel-version-in-version-file",
+      "predicate": "embeds_component",
+      "match": { "component": "linux_kernel", "version": "4.14.98" },
+      "subject_path": "usr/share/version",
+      "min_confidence": 0.85
+    },
+    {
+      "id": "aws-key-in-embedded-elf",
+      "predicate": "contains_hardcoded_secret",
+      "match": { "secret_kind": "aws_access_key" },
+      "subject_path": "bin/firmware_agent",
+      "min_confidence": 0.9,
+      "evidence_kind": "string"
+    },
+    {
+      "id": "risky-api-in-embedded-elf",
+      "predicate": "uses_risky_api",
+      "match": { "api": "system", "category": "command_exec" },
+      "subject_path": "bin/firmware_agent",
+      "min_confidence": 0.85
+    },
+    {
+      "id": "embedded-pe-identified",
+      "predicate": "firmware_contains_file",
+      "match": { "path": "bin/diagnostics.exe", "format": "pe" },
+      "min_confidence": 0.9,
+      "required": false
+    }
+  ],
+  "forbidden": [
+    {
+      "id": "no-secret-attributed-to-raw-container",
+      "predicate": "contains_hardcoded_secret",
+      "subject_path": "00000100.gunzipped",
+      "match": { "secret_kind": "api_token" }
+    },
+    {
+      "id": "no-jwt-anywhere",
+      "predicate": "contains_hardcoded_secret",
+      "match": { "secret_kind": "jwt" }
+    }
+  ]
+}
