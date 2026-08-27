@@ -28,6 +28,10 @@ class Availability:
     detail: str = ""
     #: Actionable next step shown to the user when ``available`` is False.
     remedy: str = ""
+    #: What analysis is lost while this engine is unavailable. Stated per
+    #: engine rather than in one footnote, so a reader of a single MISSING line
+    #: learns the consequence without having to assemble it themselves.
+    cost: str = ""
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -35,6 +39,7 @@ class Availability:
             "version": self.version,
             "detail": self.detail,
             "remedy": self.remedy,
+            "cost": self.cost,
         }
 
 

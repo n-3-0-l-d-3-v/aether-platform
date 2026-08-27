@@ -237,3 +237,82 @@ def test_run_suites_summary(elf_sample, firmware_sample, ghidra_export_dir):
     assert summary["failed"] == 0
     assert summary["recall"] == 1.0
     assert summary["required_total"] >= 30
+
+
+# -- doctor -----------------------------------------------------------------
+
+
+def test_doctor_reports_java_separately_from_ghidra(capsys):
+    """The JDK is diagnosed on its own row.
+
+    Ghidra headless fails on a missing or too-old runtime in a way that reads
+    as a Ghidra problem, so hiding Java behind Ghidra's row withholds the
+    information exactly when someone is still setting things up.
+    """
+    assert run_cli("--json", "doctor") == 0
+    report = json.loads(capsys.readouterr().out)
+    assert set(report) == {"triage", "java", "ghidra", "binwalk"}
+    assert report["triage"]["available"] is True
+
+
+def test_doctor_states_what_each_missing_component_costs(capsys):
+    run_cli("--json", "doctor")
+    report = json.loads(capsys.readouterr().out)
+    for name, info in report.items():
+        if not info["available"]:
+            assert info["cost"], f"{name} is missing but does not say what that costs"
+            assert info["remedy"], f"{name} is missing but offers no remedy"
+
+
+def test_doctor_succeeds_even_with_every_engine_missing(capsys):
+    """Missing optional engines are a normal state, not a failure."""
+    assert run_cli("doctor") == 0
+    output = capsys.readouterr().out
+    assert "components available" in output
+    for component in ("triage", "java", "ghidra", "binwalk"):
+        assert component in output
+
+
+def test_doctor_output_stays_within_eighty_columns(capsys):
+    run_cli("doctor")
+    for line in capsys.readouterr().out.splitlines():
+        assert len(line) <= 80, f"line exceeds 80 columns: {line!r}"
+
+
+def test_java_probe_parses_a_version_string(monkeypatch):
+    """Java reports its version on stderr, and Java 8 uses the 1.x scheme."""
+    import subprocess
+
+    from aether.adapters import ghidra
+
+    monkeypatch.setattr(ghidra, "find_java", lambda: "/usr/bin/java")
+
+    def fake_run(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            argv, 0, stdout="", stderr='openjdk version "21.0.3" 2024-04-16\n'
+        )
+
+    monkeypatch.setattr(ghidra, "run_process", fake_run)
+    result = ghidra.probe_java()
+    assert result.available is True
+    assert result.version == "21"
+
+
+def test_java_probe_rejects_a_runtime_older_than_ghidra_needs(monkeypatch):
+    import subprocess
+
+    from aether.adapters import ghidra
+
+    monkeypatch.setattr(ghidra, "find_java", lambda: "/usr/bin/java")
+
+    def fake_run(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            argv, 0, stdout="", stderr='java version "1.8.0_401"\n'
+        )
+
+    monkeypatch.setattr(ghidra, "run_process", fake_run)
+    result = ghidra.probe_java()
+    assert result.available is False
+    assert result.version == "8"
+    assert "21" in result.remedy
+    assert result.cost

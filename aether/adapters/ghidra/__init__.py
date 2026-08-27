@@ -121,19 +121,25 @@ class GhidraAdapter(Adapter):
                 remedy=(
                     "Install Ghidra (https://ghidra-sre.org) and set "
                     "GHIDRA_INSTALL_DIR to its directory, or put support/"
-                    "analyzeHeadless on PATH. Ghidra needs a JDK 21+ on PATH too. "
-                    "Exports produced elsewhere can be imported without any of "
-                    "this: aether import-ghidra <dir> --object <file>."
+                    "analyzeHeadless on PATH. Or skip the local install "
+                    "entirely: aether import-ghidra <dir> --object <file> "
+                    "ingests an export produced on any machine."
+                ),
+                cost=(
+                    "No function recovery, cross references, or decompilation. "
+                    "Header-level triage still runs."
                 ),
             )
-        if not _java_available():
+        java = probe_java()
+        if not java.available:
             return Availability(
                 available=False,
                 version=_ghidra_version(self._headless),
-                detail=f"found {self._headless} but no Java runtime on PATH",
-                remedy=(
-                    "Install a JDK 21 or newer and ensure 'java' is on PATH, or "
-                    "set JAVA_HOME. Ghidra headless cannot start without it."
+                detail=f"found {self._headless}, but {java.detail}",
+                remedy=java.remedy,
+                cost=(
+                    "No function recovery, cross references, or decompilation "
+                    "until the JDK is fixed."
                 ),
             )
         return Availability(
@@ -357,14 +363,75 @@ def _resolve_by_digest(project: Project, meta: dict[str, Any]) -> str | None:
     return None
 
 
-def _java_available() -> bool:
-    if which("java", "java.exe"):
-        return True
+#: Ghidra 11.x requires this major version or newer.
+MINIMUM_JDK = 21
+
+
+def find_java() -> str | None:
+    """Locate a Java runtime on PATH or under JAVA_HOME."""
+    found = which("java", "java.exe")
+    if found:
+        return found
     java_home = os.environ.get("JAVA_HOME")
     if java_home:
         binary = "java.exe" if os.name == "nt" else "java"
-        return os.path.isfile(os.path.join(java_home, "bin", binary))
-    return False
+        candidate = os.path.join(java_home, "bin", binary)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def probe_java() -> Availability:
+    """Report the JDK separately from Ghidra itself.
+
+    Ghidra headless fails on a too-old or absent JDK in a way that reads as a
+    Ghidra problem, so the two are diagnosed independently. Reporting the JDK
+    only when Ghidra is already installed would withhold the information
+    exactly when it is most useful - while someone is still setting things up.
+    """
+    java = find_java()
+    if not java:
+        return Availability(
+            available=False,
+            detail="no Java runtime found on PATH or under JAVA_HOME",
+            remedy=(
+                f"Install a JDK {MINIMUM_JDK} or newer (for example Temurin, from "
+                "https://adoptium.net) and put 'java' on PATH, or set JAVA_HOME."
+            ),
+            cost="Ghidra headless cannot start at all.",
+        )
+
+    # `java -version` writes to stderr on every version ever shipped.
+    result = run_process([java, "-version"], timeout=30)
+    raw = f"{result.stdout or ''}{result.stderr or ''}"
+    match = re.search(r'version "?(\d+)(?:\.(\d+))?', raw)
+    if not match:
+        return Availability(
+            available=True,
+            version="unknown",
+            detail=f"{java} (version string not recognised)",
+            cost="",
+        )
+
+    major = int(match.group(1))
+    # Java 8 and earlier report as 1.8.0_x; the real major is the second field.
+    if major == 1 and match.group(2):
+        major = int(match.group(2))
+    version = str(major)
+
+    if major < MINIMUM_JDK:
+        return Availability(
+            available=False,
+            version=version,
+            detail=f"{java} is Java {major}, older than the required {MINIMUM_JDK}",
+            remedy=(
+                f"Install a JDK {MINIMUM_JDK} or newer and point JAVA_HOME at it. "
+                "Ghidra 11.x will refuse to start on an older runtime."
+            ),
+            cost="Ghidra headless cannot start on this runtime.",
+        )
+    return Availability(available=True, version=version, detail=java)
+
 
 
 def _ghidra_version(headless_path: str) -> str:

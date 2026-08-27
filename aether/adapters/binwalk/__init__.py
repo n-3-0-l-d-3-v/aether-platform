@@ -62,11 +62,13 @@ class BinwalkAdapter(Adapter):
                 available=False,
                 detail="binwalk was not found on PATH",
                 remedy=(
-                    "Install it with 'pip install binwalk' or from "
-                    "https://github.com/ReFirmLabs/binwalk. Without it Aether falls "
-                    "back to its built-in carver, which handles gzip/bzip2/xz/zip/"
-                    "tar/cpio and identifies (but cannot unpack) squashfs, jffs2, "
-                    "and ubifs."
+                    "Install it with 'pip install binwalk', or from "
+                    "https://github.com/ReFirmLabs/binwalk. Full extraction also "
+                    "wants sasquatch, jefferson, and ubi_reader."
+                ),
+                cost=(
+                    "squashfs, jffs2, ubifs, and vendor formats are located but "
+                    "not unpacked. gzip/bzip2/xz/zip/tar/cpio still work."
                 ),
             )
         result = run_process([self._binary, "--help"], timeout=60)

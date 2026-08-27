@@ -605,30 +605,52 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    """Report which engines are available, and what each gap costs.
+
+    The JDK gets its own row rather than hiding behind Ghidra's. Ghidra headless
+    fails on a missing or too-old runtime in a way that reads as a Ghidra
+    problem, and reporting Java only once Ghidra is already installed withholds
+    the information exactly when someone is still setting things up.
+    """
+    import textwrap
+
     from aether.adapters.binwalk import BinwalkAdapter
-    from aether.adapters.ghidra import GhidraAdapter
+    from aether.adapters.ghidra import GhidraAdapter, probe_java
     from aether.adapters.triage import TriageAdapter
 
-    engines = {}
-    for adapter in (TriageAdapter(), GhidraAdapter(), BinwalkAdapter()):
-        engines[adapter.name] = adapter.probe().to_record()
+    components: dict[str, Any] = {"triage": TriageAdapter().probe().to_record()}
+    components["java"] = probe_java().to_record()
+    components["ghidra"] = GhidraAdapter().probe().to_record()
+    components["binwalk"] = BinwalkAdapter().probe().to_record()
 
     def render(rows: dict[str, Any]) -> None:
-        print(f"aether {AETHER_VERSION}  (python {sys.version.split()[0]})")
+        print(f"aether {AETHER_VERSION}  (python {sys.version.split()[0]}, {sys.platform})")
         print()
         for name, info in rows.items():
             mark = "ok     " if info["available"] else "MISSING"
-            print(f"  {mark} {name:10s} {info['version']:12s} {info['detail']}")
-            if not info["available"] and info["remedy"]:
-                for line in info["remedy"].split(". "):
-                    if line.strip():
-                        print(f"           {line.strip().rstrip('.')}.")
-        print()
-        print("Aether runs without Ghidra or binwalk, at reduced depth:")
-        print("  - without Ghidra:  no functions, xrefs, or decompilation")
-        print("  - without binwalk: only gzip/bzip2/xz/zip/tar/cpio unpack")
+            version = info["version"] if info["version"] != "unknown" else "-"
+            print(f"  {mark}  {name:9s} {version:10s} {info['detail']}")
+            for label, text in (("cost", info.get("cost")), ("fix", info.get("remedy"))):
+                if info["available"] or not text:
+                    continue
+                # 21 columns of indent already spent; keep the line under 80.
+                wrapped = textwrap.wrap(text, width=58)
+                print(f"           {label + ':':9s} {wrapped[0]}")
+                for line in wrapped[1:]:
+                    print(f"                     {line}")
+            if not info["available"]:
+                print()
 
-    _emit(engines, args.json, render)
+        available = sum(1 for info in rows.values() if info["available"])
+        print(f"{available} of {len(rows)} components available.")
+        if available < len(rows):
+            print(
+                "Aether still runs: header triage, firmware carving, the evidence "
+                "graph,\nthe MCP server, and export all work without any external "
+                "engine."
+            )
+
+    _emit(components, args.json, render)
     return 0
 
 
