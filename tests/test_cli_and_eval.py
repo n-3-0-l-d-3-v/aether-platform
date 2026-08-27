@@ -279,6 +279,41 @@ def test_doctor_output_stays_within_eighty_columns(capsys):
         assert len(line) <= 80, f"line exceeds 80 columns: {line!r}"
 
 
+def test_doctor_folds_a_long_runtime_path(capsys, monkeypatch):
+    """Width must not depend on what the host happens to have installed.
+
+    The plain width test above passes trivially on a machine with no Java. CI
+    runners ship a JDK at paths like
+    C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.20-8/x64/bin/java.exe,
+    which is longer than the whole line budget on its own - that is how the
+    original overflow reached CI unnoticed.
+    """
+    import subprocess
+
+    from aether.adapters import ghidra
+
+    long_path = (
+        "C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/"
+        "17.0.20-8/x64/bin/java.EXE"
+    )
+    monkeypatch.setattr(ghidra, "find_java", lambda: long_path)
+    monkeypatch.setattr(
+        ghidra,
+        "run_process",
+        lambda argv, **kw: subprocess.CompletedProcess(
+            argv, 0, stdout="", stderr='openjdk version "17.0.20" 2023-07-18'
+        ),
+    )
+
+    run_cli("doctor")
+    output = capsys.readouterr().out
+    for line in output.splitlines():
+        assert len(line) <= 80, f"line exceeds 80 columns: {line!r}"
+    # The path must still be recoverable, just folded across lines.
+    assert "hostedtoolcache" in output
+    assert "17" in output
+
+
 def test_java_probe_parses_a_version_string(monkeypatch):
     """Java reports its version on stderr, and Java 8 uses the 1.x scheme."""
     import subprocess

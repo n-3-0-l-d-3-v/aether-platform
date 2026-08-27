@@ -24,7 +24,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 complete
 
-All 25 gate checks pass, 178 tests pass.
+All 25 gate checks pass, 179 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -112,7 +112,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 178 tests
+python -m pytest              # 179 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -204,7 +204,7 @@ $ aether doctor
 aether 0.1.0  (python 3.12.2, win32)
 
   ok       triage    0.1.0      built in; no external engine required
-  MISSING  java      -          no Java runtime found on PATH or under JAVA_HOME
+  MISSING  java      -          not found on PATH or under JAVA_HOME
            cost:     Ghidra headless cannot start at all.
            fix:      Install a JDK 21 or newer (for example Temurin, from
                      https://adoptium.net) and put 'java' on PATH, or set
@@ -353,7 +353,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               178 tests
+tests/               179 tests
 ```
 
 ## Documentation

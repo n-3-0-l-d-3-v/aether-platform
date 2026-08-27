@@ -629,7 +629,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         for name, info in rows.items():
             mark = "ok     " if info["available"] else "MISSING"
             version = info["version"] if info["version"] != "unknown" else "-"
-            print(f"  {mark}  {name:9s} {version:10s} {info['detail']}")
+            header = f"  {mark}  {name:9s} {version:10s} "
+            detail_lines = textwrap.wrap(info["detail"], width=80 - len(header)) or [""]
+            print(header + detail_lines[0])
+            for line in detail_lines[1:]:
+                print(" " * len(header) + line)
             for label, text in (("cost", info.get("cost")), ("fix", info.get("remedy"))):
                 if info["available"] or not text:
                     continue

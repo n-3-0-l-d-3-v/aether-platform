@@ -135,11 +135,11 @@ class GhidraAdapter(Adapter):
             return Availability(
                 available=False,
                 version=_ghidra_version(self._headless),
-                detail=f"found {self._headless}, but {java.detail}",
+                detail=self._headless,
                 remedy=java.remedy,
                 cost=(
-                    "No function recovery, cross references, or decompilation "
-                    "until the JDK is fixed."
+                    "Ghidra is installed but its Java runtime is unusable, so "
+                    "nothing can run. See the java row above."
                 ),
             )
         return Availability(
@@ -393,7 +393,7 @@ def probe_java() -> Availability:
     if not java:
         return Availability(
             available=False,
-            detail="no Java runtime found on PATH or under JAVA_HOME",
+            detail="not found on PATH or under JAVA_HOME",
             remedy=(
                 f"Install a JDK {MINIMUM_JDK} or newer (for example Temurin, from "
                 "https://adoptium.net) and put 'java' on PATH, or set JAVA_HOME."
@@ -423,12 +423,15 @@ def probe_java() -> Availability:
         return Availability(
             available=False,
             version=version,
-            detail=f"{java} is Java {major}, older than the required {MINIMUM_JDK}",
+            detail=java,
             remedy=(
-                f"Install a JDK {MINIMUM_JDK} or newer and point JAVA_HOME at it. "
-                "Ghidra 11.x will refuse to start on an older runtime."
+                f"Install a JDK {MINIMUM_JDK} or newer and point JAVA_HOME at it."
             ),
-            cost="Ghidra headless cannot start on this runtime.",
+            cost=(
+                f"Ghidra 11.x refuses to start on Java {major}; it needs "
+                f"{MINIMUM_JDK} or newer, so there is no function recovery, "
+                "cross references, or decompilation."
+            ),
         )
     return Availability(available=True, version=version, detail=java)
 
