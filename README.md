@@ -24,7 +24,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 complete
 
-All 25 gate checks pass, 172 tests pass.
+All 25 gate checks pass, 178 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -112,7 +112,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 172 tests
+python -m pytest              # 178 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -195,15 +195,40 @@ export stream, where they can never be mistaken for findings.
 ## Enabling the full engines
 
 Aether runs without Ghidra or binwalk, at reduced depth, and says so. `aether
-doctor` reports what is missing and what each gap costs:
+doctor` reports every component - including the JDK on its own row, because
+Ghidra headless fails on a missing or too-old runtime in a way that reads as a
+Ghidra problem - along with what each gap costs and how to close it:
 
 ```bash
 $ aether doctor
-aether 0.1.0  (python 3.12.2)
+aether 0.1.0  (python 3.12.2, win32)
 
-  ok      triage     0.1.0        built in; no external engine required
-  MISSING ghidra     unknown      analyzeHeadless was not found
-  MISSING binwalk    unknown      binwalk was not found on PATH
+  ok       triage    0.1.0      built in; no external engine required
+  MISSING  java      -          no Java runtime found on PATH or under JAVA_HOME
+           cost:     Ghidra headless cannot start at all.
+           fix:      Install a JDK 21 or newer (for example Temurin, from
+                     https://adoptium.net) and put 'java' on PATH, or set
+                     JAVA_HOME.
+
+  MISSING  ghidra    -          analyzeHeadless was not found
+           cost:     No function recovery, cross references, or decompilation.
+                     Header-level triage still runs.
+           fix:      Install Ghidra (https://ghidra-sre.org) and set
+                     GHIDRA_INSTALL_DIR to its directory, or put
+                     support/analyzeHeadless on PATH. Or skip the local install
+                     entirely: aether import-ghidra <dir> --object <file>
+                     ingests an export produced on any machine.
+
+  MISSING  binwalk   -          binwalk was not found on PATH
+           cost:     squashfs, jffs2, ubifs, and vendor formats are located but
+                     not unpacked. gzip/bzip2/xz/zip/tar/cpio still work.
+           fix:      Install it with 'pip install binwalk', or from
+                     https://github.com/ReFirmLabs/binwalk. Full extraction
+                     also wants sasquatch, jefferson, and ubi_reader.
+
+1 of 4 components available.
+Aether still runs: header triage, firmware carving, the evidence graph,
+the MCP server, and export all work without any external engine.
 ```
 
 ### Ghidra
@@ -328,7 +353,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               172 tests
+tests/               178 tests
 ```
 
 ## Documentation
