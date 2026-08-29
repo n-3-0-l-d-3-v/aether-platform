@@ -391,6 +391,18 @@ def _get_decompilation(project: Project, args: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _ask(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    """Answer one of the five supported questions, or decline it."""
+    from aether.nl import ask as run_ask
+
+    answer = run_ask(
+        project,
+        str(args["question"]),
+        object_reference=args.get("object"),
+    )
+    return answer.to_record()
+
+
 def _describe_schema(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     registries = describe_registries()
     if args.get("predicate"):
@@ -713,6 +725,32 @@ _register(
             }
         ),
         _describe_schema,
+    )
+)
+
+_register(
+    Tool(
+        "aether_ask",
+        "Ask one of five supported questions in plain language: hardcoded "
+        "secrets, embedded third-party components, attack surface, suspicious "
+        "strings and behaviours, or exploit mitigations. Every line of the "
+        "answer cites the claim ids it rests on, and each finding carries the "
+        "artifact and address the claim is grounded in. A question outside "
+        "that set comes back with understood=false and the supported list - "
+        "it is declined rather than guessed at, so do not retry a rephrasing "
+        "of an unsupported question. For anything narrower, query claims "
+        "directly with aether_find_claims.",
+        _schema(
+            {
+                "question": {"type": "string"},
+                "object": {
+                    "type": "string",
+                    "description": "Restrict the answer to one file.",
+                },
+            },
+            ["question"],
+        ),
+        _ask,
     )
 )
 

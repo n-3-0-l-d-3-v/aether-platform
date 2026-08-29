@@ -32,18 +32,49 @@ from aether.nl.model import AnswerLine, Finding
 MATCH_THRESHOLD = 0.30
 
 
-def _contains(text: str, phrase: str) -> bool:
-    """Match a vocabulary phrase against already-normalized text.
+def _singular(token: str) -> str:
+    """Crude English singularization, enough for a question vocabulary.
 
-    Single words are matched whole. Substring matching would let "key" fire on
-    "monkey" and " pie" on "piece", which is exactly the kind of silent
-    mis-classification a narrow interface exists to avoid. Multi-word phrases
-    stay substring matches so that "third party librar" catches both
-    "libraries" and "library".
+    Not a stemmer and not trying to be. It exists so the vocabulary can be
+    written once in the singular instead of listing every plural by hand, which
+    is the kind of list that silently rots.
     """
-    if " " in phrase.strip():
-        return phrase in text
-    return f" {phrase.strip()} " in text
+    if len(token) > 4 and token.endswith("ies"):
+        return token[:-3] + "y"
+    if len(token) > 4 and token.endswith(("ses", "xes", "zes", "ches", "shes")):
+        return token[:-2]
+    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+@dataclass(frozen=True)
+class Normalized:
+    """A question prepared for matching, in both the forms matching needs."""
+
+    text: str
+    tokens: frozenset[str]
+
+    def has_phrase(self, phrase: str) -> bool:
+        return phrase in self.text
+
+    def has_word(self, word: str) -> bool:
+        return word in self.tokens
+
+
+def _contains(normalized: "Normalized", phrase: str) -> bool:
+    """Match one vocabulary entry against a prepared question.
+
+    Single words are matched as whole tokens, in both their written and
+    singularized form. Substring matching would let "key" fire on "monkey" and
+    "pie" on "piece" - exactly the silent mis-classification a narrow interface
+    exists to avoid. Multi-word phrases stay substring matches, so
+    "third party librar" catches both "libraries" and "library".
+    """
+    stripped = phrase.strip()
+    if " " in stripped:
+        return normalized.has_phrase(stripped)
+    return normalized.has_word(stripped) or normalized.has_word(_singular(stripped))
 
 
 @dataclass(frozen=True)
@@ -60,19 +91,20 @@ class Vocabulary:
     weak: tuple[str, ...] = ()
     negatives: tuple[str, ...] = ()
 
-    def score(self, text: str) -> float:
+    def score(self, text: "str | Normalized") -> float:
+        normalized = prepare(text) if isinstance(text, str) else text
         total = 0.0
         for phrase in self.anchors:
-            if _contains(text, phrase):
+            if _contains(normalized, phrase):
                 total += 1.0
         for phrase in self.terms:
-            if _contains(text, phrase):
+            if _contains(normalized, phrase):
                 total += 0.5
         for phrase in self.weak:
-            if _contains(text, phrase):
+            if _contains(normalized, phrase):
                 total += 0.2
         for phrase in self.negatives:
-            if _contains(text, phrase):
+            if _contains(normalized, phrase):
                 total -= 0.6
         return total
 
@@ -541,6 +573,8 @@ _register(
             ),
             terms=(
                 "attack",
+                "attacked",
+                "attacker",
                 "risky",
                 "dangerous",
                 "unsafe",
@@ -645,9 +679,19 @@ def normalize(text: str) -> str:
     return f" {' '.join(collapsed.split())} "
 
 
+def prepare(text: str) -> Normalized:
+    """Normalize once, in both the forms matching needs."""
+    normalized = normalize(text)
+    words = set(normalized.split())
+    return Normalized(
+        text=normalized,
+        tokens=frozenset(words | {_singular(word) for word in words}),
+    )
+
+
 def score_all(text: str) -> list[tuple[QuestionType, float]]:
     """Score every question type against ``text``, best first."""
-    normalized = normalize(text)
+    normalized = prepare(text)
     scored = [
         (question, question.vocabulary.score(normalized))
         for question in QUESTION_TYPES.values()
@@ -678,6 +722,7 @@ def describe_supported() -> list[dict[str, str]]:
 
 __all__ = [
     "MATCH_THRESHOLD",
+    "Normalized",
     "PlanContext",
     "QUESTION_TYPES",
     "QuestionType",
@@ -685,5 +730,6 @@ __all__ = [
     "classify",
     "describe_supported",
     "normalize",
+    "prepare",
     "score_all",
 ]

@@ -658,6 +658,60 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ask(args: argparse.Namespace) -> int:
+    """Answer one of the supported questions from the evidence graph."""
+    from aether.nl import ask, describe_supported
+
+    if args.list:
+        supported = describe_supported()
+        _emit(
+            supported,
+            args.json,
+            lambda rows: _table(
+                [[r["id"], r["title"], r["example"]] for r in rows],
+                ["id", "answers", "example"],
+            ),
+        )
+        return 0
+
+    if not args.question:
+        raise AetherError(
+            "ask what? Pass a question, or 'aether ask --list' to see what "
+            "this interface answers."
+        )
+
+    project = _open_project(args)
+    try:
+        answer = ask(
+            project, " ".join(args.question), object_reference=args.object
+        )
+
+        def render(record: dict[str, Any]) -> None:
+            if record["scope"]:
+                print(f"scope: {record['scope']}")
+            if not record["understood"]:
+                print(answer.render())
+                print()
+                print("This interface answers:")
+                _table(
+                    [[r["id"], r["title"], r["example"]] for r in record["supported"]],
+                    ["id", "answers", "example"],
+                )
+                return
+            print(
+                f"[{record['question_type']}] "
+                f"{len(record['claim_ids'])} claim(s) cited"
+            )
+            print()
+            print(answer.render())
+
+        _emit(answer.to_record(), args.json, render)
+        # Declining is a correct outcome, not an error: exit 0 either way.
+        return 0
+    finally:
+        project.close()
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -865,6 +919,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_doctor = subparsers.add_parser("doctor", help="Report which engines are available.")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_ask = subparsers.add_parser(
+        "ask",
+        help="Ask one of the supported questions in plain language.",
+        description=(
+            "A deliberately narrow interface: five question types, matched "
+            "deterministically with no language model involved. Anything "
+            "outside the set is declined rather than guessed at. Every line of "
+            "the answer cites the claim ids it rests on."
+        ),
+    )
+    p_ask.add_argument("question", nargs="*", help="The question to answer.")
+    p_ask.add_argument("--object", help="Restrict the answer to one file.")
+    p_ask.add_argument(
+        "--list", action="store_true", help="List the supported question types."
+    )
+    p_ask.set_defaults(func=cmd_ask)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(
