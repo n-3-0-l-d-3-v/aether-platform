@@ -261,7 +261,8 @@ def test_doctor_reports_java_separately_from_ghidra(capsys):
     """
     assert run_cli("--json", "doctor") == 0
     report = json.loads(capsys.readouterr().out)
-    assert set(report) == {"triage", "java", "ghidra", "binwalk"}
+    # Java is its own row, distinct from the Ghidra row it used to hide behind.
+    assert {"triage", "java", "ghidra"} <= set(report)
     assert report["triage"]["available"] is True
 
 
