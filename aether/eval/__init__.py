@@ -3,8 +3,10 @@
 from aether.eval.harness import (
     EvalError,
     ExpectationResult,
+    QuestionReport,
     SuiteReport,
     load_suite,
+    run_question_suite,
     run_suite,
     run_suites,
 )
@@ -12,8 +14,10 @@ from aether.eval.harness import (
 __all__ = [
     "EvalError",
     "ExpectationResult",
+    "QuestionReport",
     "SuiteReport",
     "load_suite",
+    "run_question_suite",
     "run_suite",
     "run_suites",
 ]

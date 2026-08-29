@@ -91,6 +91,154 @@ class SuiteReport:
         }
 
 
+@dataclass
+class QuestionReport:
+    """Scored outcome for a question-classification suite.
+
+    Reported separately from claim suites because the failure modes differ.
+    Classifying one supported question as another is a nuisance; classifying an
+    *unsupported* question as supported is the one that produces a confident
+    answer to a question nobody asked, so it is counted on its own and gates
+    the suite by default.
+    """
+
+    suite: str
+    passed: bool
+    total: int = 0
+    correct: int = 0
+    false_accepts: list[dict[str, Any]] = field(default_factory=list)
+    false_declines: list[dict[str, Any]] = field(default_factory=list)
+    misclassified: list[dict[str, Any]] = field(default_factory=list)
+    per_type: dict[str, dict[str, Any]] = field(default_factory=dict)
+    totals: dict[str, Any] = field(default_factory=dict)
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "suite": self.suite,
+            "kind": "questions",
+            "passed": self.passed,
+            "totals": self.totals,
+            "per_type": self.per_type,
+            "false_accepts": self.false_accepts,
+            "false_declines": self.false_declines,
+            "misclassified": self.misclassified,
+        }
+
+
+def run_question_suite(suite: dict[str, Any]) -> QuestionReport:
+    """Score intent classification against a labelled question corpus.
+
+    No project is needed: this measures whether the interface understands the
+    question, not whether the graph has anything to say about it. The latter is
+    what the claim suites cover.
+    """
+    from aether.nl import classify
+
+    cases = suite.get("cases") or []
+    if not cases:
+        raise EvalError(f"{suite.get('name')}: a question suite needs 'cases'")
+
+    correct = 0
+    false_accepts: list[dict[str, Any]] = []
+    false_declines: list[dict[str, Any]] = []
+    misclassified: list[dict[str, Any]] = []
+    predicted_counts: dict[str, int] = {}
+    expected_counts: dict[str, int] = {}
+    hits: dict[str, int] = {}
+
+    for case in cases:
+        question = str(case.get("question", ""))
+        expected = case.get("expect")
+        matched, score = classify(question)
+        predicted = matched.id if matched else None
+
+        if expected:
+            expected_counts[expected] = expected_counts.get(expected, 0) + 1
+        if predicted:
+            predicted_counts[predicted] = predicted_counts.get(predicted, 0) + 1
+
+        if predicted == expected:
+            correct += 1
+            if expected:
+                hits[expected] = hits.get(expected, 0) + 1
+        elif expected is None:
+            false_accepts.append(
+                {
+                    "question": question,
+                    "classified_as": predicted,
+                    "score": round(score, 3),
+                }
+            )
+        elif predicted is None:
+            false_declines.append(
+                {"question": question, "expected": expected, "score": round(score, 3)}
+            )
+        else:
+            misclassified.append(
+                {"question": question, "expected": expected, "got": predicted}
+            )
+
+    per_type: dict[str, dict[str, Any]] = {}
+    for name in sorted(set(expected_counts) | set(predicted_counts)):
+        matched_count = hits.get(name, 0)
+        predicted_total = predicted_counts.get(name, 0)
+        expected_total = expected_counts.get(name, 0)
+        per_type[name] = {
+            "expected": expected_total,
+            "predicted": predicted_total,
+            "correct": matched_count,
+            "precision": round(matched_count / predicted_total, 4)
+            if predicted_total
+            else 1.0,
+            "recall": round(matched_count / expected_total, 4) if expected_total else 1.0,
+        }
+
+    total = len(cases)
+    in_scope = sum(expected_counts.values())
+    out_of_scope = total - in_scope
+    macro_precision = (
+        sum(v["precision"] for v in per_type.values()) / len(per_type) if per_type else 1.0
+    )
+    macro_recall = (
+        sum(v["recall"] for v in per_type.values()) / len(per_type) if per_type else 1.0
+    )
+
+    totals = {
+        "cases": total,
+        "in_scope": in_scope,
+        "out_of_scope": out_of_scope,
+        "correct": correct,
+        "accuracy": round(correct / total, 4) if total else 1.0,
+        "macro_precision": round(macro_precision, 4),
+        "macro_recall": round(macro_recall, 4),
+        "false_accepts": len(false_accepts),
+        "false_declines": len(false_declines),
+        "misclassified": len(misclassified),
+        "false_accept_rate": round(len(false_accepts) / out_of_scope, 4)
+        if out_of_scope
+        else 0.0,
+    }
+
+    thresholds = suite.get("thresholds") or {}
+    passed = (
+        totals["accuracy"] >= float(thresholds.get("min_accuracy", 0.9))
+        and totals["macro_precision"] >= float(thresholds.get("min_macro_precision", 0.9))
+        and len(false_accepts) <= int(thresholds.get("max_false_accepts", 0))
+    )
+
+    return QuestionReport(
+        suite=str(suite.get("name", "questions")),
+        passed=passed,
+        total=total,
+        correct=correct,
+        false_accepts=false_accepts,
+        false_declines=false_declines,
+        misclassified=misclassified,
+        per_type=per_type,
+        totals=totals,
+    )
+
+
 def load_suite(path: str) -> dict[str, Any]:
     """Read and structurally validate a suite file."""
     if not os.path.isfile(path):
@@ -100,6 +248,11 @@ def load_suite(path: str) -> dict[str, Any]:
             suite = json.load(handle)
         except json.JSONDecodeError as exc:
             raise EvalError(f"{path} is not valid JSON: {exc}") from exc
+
+    if suite.get("kind") == "questions":
+        if not isinstance(suite.get("cases"), list) or not suite["cases"]:
+            raise EvalError(f"{path}: a question suite needs a non-empty 'cases' list")
+        return suite
 
     for key in ("name", "target", "expectations"):
         if key not in suite:
@@ -383,31 +536,55 @@ def _find_matching(project: Project, raw: dict[str, Any]) -> list[dict[str, Any]
 
 def run_suites(
     paths: list[str], *, base_dir: str = "."
-) -> tuple[list[SuiteReport], dict[str, Any]]:
-    """Run several suites and summarize."""
-    reports = [run_suite(load_suite(path), base_dir=base_dir) for path in paths]
-    summary = {
+) -> tuple[list[Any], dict[str, Any]]:
+    """Run several suites of either kind and summarize."""
+    reports: list[Any] = []
+    for path in paths:
+        suite = load_suite(path)
+        if suite.get("kind") == "questions":
+            reports.append(run_question_suite(suite))
+        else:
+            reports.append(run_suite(suite, base_dir=base_dir))
+
+    claim_reports = [r for r in reports if isinstance(r, SuiteReport)]
+    question_reports = [r for r in reports if isinstance(r, QuestionReport)]
+
+    summary: dict[str, Any] = {
         "suites": len(reports),
         "passed": sum(1 for r in reports if r.passed),
         "failed": sum(1 for r in reports if not r.passed),
-        "required_total": sum(r.totals["required"] for r in reports),
-        "required_satisfied": sum(r.totals["required_satisfied"] for r in reports),
-        "forbidden_hits": sum(r.totals["forbidden_hits"] for r in reports),
+        "required_total": sum(r.totals["required"] for r in claim_reports),
+        "required_satisfied": sum(r.totals["required_satisfied"] for r in claim_reports),
+        "forbidden_hits": sum(r.totals["forbidden_hits"] for r in claim_reports),
     }
-    if summary["required_total"]:
-        summary["recall"] = round(
-            summary["required_satisfied"] / summary["required_total"], 4
+    summary["recall"] = (
+        round(summary["required_satisfied"] / summary["required_total"], 4)
+        if summary["required_total"]
+        else 1.0
+    )
+    if question_reports:
+        cases = sum(r.totals["cases"] for r in question_reports)
+        correct = sum(r.totals["correct"] for r in question_reports)
+        summary["question_cases"] = cases
+        summary["question_accuracy"] = round(correct / cases, 4) if cases else 1.0
+        summary["question_false_accepts"] = sum(
+            r.totals["false_accepts"] for r in question_reports
         )
-    else:
-        summary["recall"] = 1.0
+        summary["question_macro_precision"] = round(
+            sum(r.totals["macro_precision"] for r in question_reports)
+            / len(question_reports),
+            4,
+        )
     return reports, summary
 
 
 __all__ = [
     "EvalError",
     "ExpectationResult",
+    "QuestionReport",
     "SuiteReport",
     "load_suite",
+    "run_question_suite",
     "run_suite",
     "run_suites",
 ]

@@ -118,6 +118,16 @@ def test_suite_files_are_well_formed():
         if not name.endswith(".json"):
             continue
         suite = load_suite(os.path.join(SUITES, name))
+
+        if suite.get("kind") == "questions":
+            assert suite["cases"]
+            for case in suite["cases"]:
+                assert case.get("question"), f"{name}: case lacks a question"
+                # `expect: null` is meaningful - it asserts a decline - so only
+                # a missing key is an error.
+                assert "expect" in case, f"{name}: case lacks an expectation"
+            continue
+
         assert suite["expectations"]
         for expectation in suite["expectations"]:
             assert expectation.get("predicate"), f"{name}: expectation lacks a predicate"
@@ -351,3 +361,88 @@ def test_java_probe_rejects_a_runtime_older_than_ghidra_needs(monkeypatch):
     assert result.version == "8"
     assert "21" in result.remedy
     assert result.cost
+
+
+# -- question-classification harness (Phase 1) ------------------------------
+
+
+def test_nl_question_suite_passes():
+    """Phase 1 requirement: measured precision on the evaluation suite."""
+    from aether.eval import run_question_suite
+
+    report = run_question_suite(
+        load_suite(os.path.join(SUITES, "nl_questions.json"))
+    )
+    assert report.passed, (
+        f"false accepts: {report.false_accepts}, "
+        f"false declines: {report.false_declines}, "
+        f"misclassified: {report.misclassified}"
+    )
+    assert report.totals["macro_precision"] >= 0.9
+    assert report.totals["false_accepts"] == 0
+    assert report.totals["out_of_scope"] >= 15, "needs real out-of-scope pressure"
+
+
+def test_question_harness_catches_a_false_accept():
+    """Answering an unsupported question is the error that matters most."""
+    from aether.eval import run_question_suite
+
+    report = run_question_suite(
+        {
+            "name": "false-accept-control",
+            "kind": "questions",
+            # This is a real supported question mislabelled as out of scope, so
+            # the classifier will answer it and the harness must object.
+            "cases": [{"question": "are there hardcoded secrets", "expect": None}],
+        }
+    )
+    assert not report.passed
+    assert report.totals["false_accepts"] == 1
+    assert report.false_accepts[0]["classified_as"] == "hardcoded_secrets"
+
+
+def test_question_harness_catches_a_false_decline():
+    from aether.eval import run_question_suite
+
+    report = run_question_suite(
+        {
+            "name": "false-decline-control",
+            "kind": "questions",
+            "cases": [{"question": "what is the weather", "expect": "attack_surface"}],
+        }
+    )
+    assert not report.passed
+    assert report.totals["false_declines"] == 1
+
+
+def test_question_harness_catches_a_wrong_type():
+    from aether.eval import run_question_suite
+
+    report = run_question_suite(
+        {
+            "name": "wrong-type-control",
+            "kind": "questions",
+            "cases": [
+                {"question": "is this binary hardened", "expect": "hardcoded_secrets"}
+            ],
+        }
+    )
+    assert not report.passed
+    assert report.totals["misclassified"] == 1
+    assert report.misclassified[0]["got"] == "binary_hardening"
+
+
+def test_question_suite_requires_cases():
+    with pytest.raises(EvalError, match="cases"):
+        from aether.eval import run_question_suite
+
+        run_question_suite({"name": "empty", "kind": "questions", "cases": []})
+
+
+def test_eval_command_reports_the_question_suite(capsys, monkeypatch, elf_sample, firmware_sample, ghidra_export_dir):
+    monkeypatch.chdir(REPO_ROOT)
+    assert run_cli("eval", "--base-dir", REPO_ROOT) == 0
+    output = capsys.readouterr().out
+    assert "question classification" in output
+    assert "macro precision" in output
+    assert "FAIL" not in output

@@ -735,6 +735,38 @@ def cmd_eval(args: argparse.Namespace) -> int:
         for report in p["reports"]:
             status = "PASS" if report["passed"] else "FAIL"
             totals = report["totals"]
+
+            if report.get("kind") == "questions":
+                print(f"[{status}] {report['suite']}  (question classification)")
+                print(
+                    f"       accuracy {totals['accuracy']:.2f}"
+                    f"   macro precision {totals['macro_precision']:.2f}"
+                    f"   macro recall {totals['macro_recall']:.2f}"
+                    f"   over {totals['cases']} case(s)"
+                )
+                print(
+                    f"       false accepts {totals['false_accepts']}"
+                    f"   false declines {totals['false_declines']}"
+                    f"   misclassified {totals['misclassified']}"
+                )
+                for hit in report["false_accepts"]:
+                    print(
+                        f"       FALSE ACCEPT  {hit['question'][:44]!r} -> "
+                        f"{hit['classified_as']}"
+                    )
+                for miss in report["false_declines"]:
+                    print(
+                        f"       FALSE DECLINE {miss['question'][:44]!r} "
+                        f"(expected {miss['expected']})"
+                    )
+                for wrong in report["misclassified"]:
+                    print(
+                        f"       WRONG TYPE    {wrong['question'][:44]!r} -> "
+                        f"{wrong['got']}, expected {wrong['expected']}"
+                    )
+                print()
+                continue
+
             print(f"[{status}] {report['suite']}  ({report['target']})")
             print(
                 f"       required {totals['required_satisfied']}/{totals['required']}"
@@ -754,12 +786,20 @@ def cmd_eval(args: argparse.Namespace) -> int:
             for hit in report["forbidden_hits"]:
                 print(f"       FALSE POSITIVE {hit['id']}: {json.dumps(hit['statement'])}")
             print()
+
         s = p["summary"]
         print(
             f"{s['passed']}/{s['suites']} suites passed   "
             f"recall {s['recall']:.2f} over {s['required_total']} expectations   "
             f"{s['forbidden_hits']} false positive(s)"
         )
+        if "question_cases" in s:
+            print(
+                f"question interface: accuracy {s['question_accuracy']:.2f}"
+                f"   macro precision {s['question_macro_precision']:.2f}"
+                f"   over {s['question_cases']} case(s)"
+                f"   {s['question_false_accepts']} false accept(s)"
+            )
 
     _emit(payload, args.json, render)
     return 0 if summary["failed"] == 0 else 1

@@ -544,7 +544,11 @@ _register(
                 "openssl",
                 "what software",
             ),
-            weak=("version", "built with", "inside"),
+            weak=("built with", "inside"),
+            # Version *diffing* is Phase 2 cartography, not a Phase 1 question.
+            # Without these, "diff this against the previous version" scored on
+            # the word "version" alone and was answered as an SBOM request.
+            negatives=("diff", "compare", "previous version", "changed since"),
         ),
         summarize=_summarize_components,
     )
