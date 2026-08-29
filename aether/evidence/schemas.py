@@ -367,6 +367,25 @@ ARTIFACT_KINDS: dict[str, ArtifactKind] = {
             ),
         ),
         _kind(
+            "trace_hit",
+            "An address observed executing at runtime, under emulation.",
+            Field("addr", "int", required=True, identity=True, minimum=0),
+            Field(
+                "tool",
+                "str",
+                required=True,
+                identity=True,
+                doc="Which emulator produced the observation, e.g. qemu-user.",
+            ),
+            Field("hit_count", "int", minimum=0),
+            Field("function_name", "str", doc="Containing function, when known."),
+            Field(
+                "run_label",
+                "str",
+                doc="Which invocation this came from, e.g. the argv that was used.",
+            ),
+        ),
+        _kind(
             "signature_hit",
             "A magic-signature match inside a container or firmware image.",
             Field("signature", "str", required=True, identity=True),
@@ -585,6 +604,53 @@ CLAIM_PREDICATES: dict[str, ClaimPredicate] = {
             requires=[
                 EvidenceRequirement("locus", ("file",), 1),
                 EvidenceRequirement("context", ("signature_hit", "byte_span"), 0),
+            ],
+        ),
+        _pred(
+            "suspicious_string",
+            "A string literal of a category worth a reviewer's attention. This is "
+            "an indicator, not a finding: a URL in a binary is normal, and the "
+            "claim says only that it is there.",
+            Field(
+                "category",
+                "str",
+                required=True,
+                enum=(
+                    "url",
+                    "ip_address",
+                    "shell_command",
+                    "device_path",
+                    "debug_interface",
+                    "encoded_blob",
+                    "sql_fragment",
+                ),
+            ),
+            Field("detector", "str", required=True),
+            Field("preview", "str", doc="Truncated excerpt, sanitized for display."),
+            requires=[EvidenceRequirement("locus", ("string",), 1)],
+        ),
+        _pred(
+            "function_reached",
+            "A function was observed executing under emulation. Dynamic evidence: "
+            "it says the code ran on one input, never that it is unreachable on "
+            "others.",
+            Field("name", "str", required=True),
+            Field("addr", "int", required=True, minimum=0),
+            Field(
+                "observed_by",
+                "str",
+                required=True,
+                enum=("qemu_user", "qemu_system", "native", "unknown"),
+            ),
+            Field("hit_count", "int", minimum=0),
+            requires=[
+                EvidenceRequirement("locus", ("function",), 1),
+                EvidenceRequirement(
+                    "support",
+                    ("trace_hit",),
+                    1,
+                    "The runtime observation that justifies the claim.",
+                ),
             ],
         ),
         _pred(

@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, Iterator
 
-from aether.util import redact
+from aether.util import redact, sanitize_text
 
 
 @dataclass(frozen=True)
@@ -215,6 +215,113 @@ COMPONENT_RULES: tuple[ComponentRule, ...] = (
     ComponentRule("sqlite", re.compile(r"SQLite version ([0-9]+\.[0-9.]+)"), 0.9),
     ComponentRule("u_boot", re.compile(r"U-Boot ([0-9]{4}\.[0-9]{2})"), 0.9),
 )
+
+
+@dataclass(frozen=True)
+class SuspiciousRule:
+    """A string shape worth a reviewer's attention.
+
+    Deliberately weaker than the secret rules. A URL in a binary is completely
+    normal; the claim these produce says only that it is present, and the
+    predicate's own documentation calls it an indicator rather than a finding.
+    Confidences are set accordingly and none of them reach the 0.9 that a rigid
+    credential shape earns.
+    """
+
+    rule_id: str
+    category: str
+    pattern: re.Pattern[str]
+    confidence: float
+
+
+SUSPICIOUS_RULES: tuple[SuspiciousRule, ...] = (
+    SuspiciousRule(
+        "http-url",
+        "url",
+        re.compile(r"\bhttps?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]{4,}"),
+        0.8,
+    ),
+    SuspiciousRule(
+        "non-http-url",
+        "url",
+        re.compile(r"\b(?:ftp|tftp|telnet|ssh|smb)://[A-Za-z0-9._~:/?#@%-]{4,}"),
+        0.8,
+    ),
+    SuspiciousRule(
+        "ipv4-literal",
+        "ip_address",
+        # Each octet bounded, so version strings like 1.31.1.0 still match but
+        # 999.1.1.1 does not. Hard-coded addresses in firmware are worth seeing;
+        # the confidence stays low because dotted quads are not always addresses.
+        re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}"
+            r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b"
+        ),
+        0.5,
+    ),
+    SuspiciousRule(
+        "shell-invocation",
+        "shell_command",
+        re.compile(r"(?:/bin/(?:ba)?sh\s+-c\b|\bsystem\s*\(|\|\s*/bin/sh\b)"),
+        0.7,
+    ),
+    SuspiciousRule(
+        "command-substitution",
+        "shell_command",
+        re.compile(r"(?:;\s*(?:rm|wget|curl|chmod|killall)\s|`[^`]{3,}`)"),
+        0.6,
+    ),
+    SuspiciousRule(
+        "device-or-proc-path",
+        "device_path",
+        # No leading \b: a word boundary cannot anchor before "/" when the
+        # string starts there, which silently missed every path at offset 0.
+        re.compile(r"(?<![A-Za-z0-9_])/(?:dev|proc|sys)/[A-Za-z0-9_./-]{2,}"),
+        0.6,
+    ),
+    SuspiciousRule(
+        "remote-shell-service",
+        "debug_interface",
+        re.compile(r"\b(?:telnetd|gdbserver|dropbear\s+-p|nc\s+-l|adbd)\b"),
+        0.7,
+    ),
+    SuspiciousRule(
+        "sql-statement",
+        "sql_fragment",
+        re.compile(r"(?i)\bSELECT\s+[\w*,\s]+\s+FROM\s+\w|\bINSERT\s+INTO\s+\w"),
+        0.6,
+    ),
+    SuspiciousRule(
+        "long-base64",
+        "encoded_blob",
+        re.compile(r"\b[A-Za-z0-9+/]{60,}={0,2}\b"),
+        0.4,
+    ),
+)
+
+
+def scan_suspicious(text: str) -> Iterator[Detection]:
+    """Yield indicator-grade matches: URLs, addresses, shell fragments, paths.
+
+    At most one detection per category per string, because a configuration file
+    listing twenty endpoints is one observation about that file, not twenty.
+    """
+    seen: set[str] = set()
+    for rule in SUSPICIOUS_RULES:
+        if rule.category in seen:
+            continue
+        match = rule.pattern.search(text)
+        if match is None:
+            continue
+        seen.add(rule.category)
+        yield Detection(
+            rule_id=rule.rule_id,
+            kind=rule.category,
+            matched=sanitize_text(match.group(0), limit=80),
+            start=match.start(),
+            confidence=rule.confidence,
+            extra={},
+        )
 
 
 def scan_secrets(text: str) -> Iterator[Detection]:

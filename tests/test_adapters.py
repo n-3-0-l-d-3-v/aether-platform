@@ -441,3 +441,81 @@ def test_extra_args_are_appended(tmp_path):
         str(tmp_path / "t.bin"), str(tmp_path / "o"), str(tmp_path / "g"), 5, ["-processor", "ARM:LE:32:v8"]
     )
     assert argv[-2:] == ["-processor", "ARM:LE:32:v8"]
+
+
+# -- suspicious string indicators (Phase 1) ---------------------------------
+
+
+@pytest.mark.parametrize(
+    "text,category",
+    [
+        ("https://updates.example-vendor.net/v2/report", "url"),
+        ("tftp://192.168.1.1/firmware.bin", "url"),
+        ("connect to 10.4.0.9 now", "ip_address"),
+        ("/bin/sh -c %s", "shell_command"),
+        ("/dev/mtdblock3", "device_path"),
+        ("/proc/self/maps", "device_path"),
+        ("busybox telnetd -l /bin/sh", "debug_interface"),
+        ("SELECT name FROM users WHERE id=?", "sql_fragment"),
+    ],
+)
+def test_suspicious_rules_fire_on_their_shapes(text, category):
+    assert category in {d.kind for d in detectors.scan_suspicious(text)}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "hello world this is an ordinary message",
+        "BusyBox v1.31.1 (2020-04-12 15:00:00 UTC) multi-call binary",
+        "ping -c 1 %s",
+        "GCC: (GNU) 14.2.0",
+    ],
+)
+def test_ordinary_strings_are_not_suspicious(text):
+    """A version banner is not a dotted-quad address, and must not read as one."""
+    assert not list(detectors.scan_suspicious(text))
+
+
+def test_one_detection_per_category_per_string():
+    """A config listing twenty endpoints is one observation, not twenty."""
+    text = "a=https://one.example/x b=https://two.example/y c=https://three.example/z"
+    urls = [d for d in detectors.scan_suspicious(text) if d.kind == "url"]
+    assert len(urls) == 1
+
+
+def test_suspicious_indicators_score_below_credential_rules():
+    """Indicators must never outrank a rigid credential shape."""
+    strongest_indicator = max(rule.confidence for rule in detectors.SUSPICIOUS_RULES)
+    aws = next(r for r in detectors.SECRET_RULES if r.rule_id == "aws-access-key-id")
+    assert strongest_indicator < aws.confidence
+
+
+def test_suspicious_claims_cite_the_string_they_came_from(project, firmware_sample):
+    BinwalkAdapter().analyze(project, firmware_sample, logical_path="demo_firmware.bin")
+    claims = project.find_claims(predicate="suspicious_string", limit=50)
+    assert claims
+    for claim in claims:
+        kinds = {project.get_artifact(r["artifact_id"]).kind for r in claim["evidence"]}
+        assert kinds == {"string"}
+    categories = {c["statement"]["category"] for c in claims}
+    assert "url" in categories
+
+
+def test_suspicious_claims_are_capped_per_category(project, tmp_path):
+    """Volume control: a binary full of URLs is still one file worth reviewing."""
+    from aether.adapters.triage import MAX_SUSPICIOUS_PER_CATEGORY, TriageAdapter
+
+    blob = tmp_path / "many_urls.bin"
+    body = b"\x00".join(
+        f"https://host{index}.example.test/path".encode() for index in range(200)
+    )
+    blob.write_bytes(b"\x00" + body + b"\x00")
+
+    TriageAdapter().analyze(project, str(blob), logical_path="many_urls.bin")
+    urls = [
+        c
+        for c in project.find_claims(predicate="suspicious_string", limit=500)
+        if c["statement"]["category"] == "url"
+    ]
+    assert 0 < len(urls) <= MAX_SUSPICIOUS_PER_CATEGORY

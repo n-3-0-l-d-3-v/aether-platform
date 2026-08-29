@@ -26,6 +26,10 @@ DEFAULT_STRING_LIMIT = 3000
 #: Strings longer than this are truncated before storage.
 MAX_STRING_LENGTH = 512
 
+#: Cap on indicator-grade claims of one category per file. Secrets and
+#: components are never capped; those are findings, and there are few of them.
+MAX_SUSPICIOUS_PER_CATEGORY = 20
+
 
 class TriageAdapter(Adapter):
     """Header-level analysis and rule-based claim production."""
@@ -253,18 +257,35 @@ class TriageAdapter(Adapter):
         extracted = strings.extract_from_file(target, min_length=min_string_length)
         section_lookup = _section_lookup(ident.sections)
 
-        interesting: list[tuple[strings.ExtractedString, list[Any], list[Any]]] = []
+        interesting: list[
+            tuple[strings.ExtractedString, list[Any], list[Any], list[Any]]
+        ] = []
         plain: list[strings.ExtractedString] = []
+        suspicious_budget = dict.fromkeys(
+            {rule.category for rule in detectors.SUSPICIOUS_RULES},
+            MAX_SUSPICIOUS_PER_CATEGORY,
+        )
         for item in extracted:
             secrets = list(detectors.scan_secrets(item.text))
             components = list(detectors.scan_components(item.text))
-            if secrets or components:
-                interesting.append((item, secrets, components))
+            # Indicator-grade detections are capped per category per file. A
+            # binary with four hundred URLs in it is one observation about that
+            # binary; four hundred claims would bury the findings that matter
+            # and cost the reviewer exactly the precision this layer is for.
+            suspicious = [
+                detection
+                for detection in detectors.scan_suspicious(item.text)
+                if suspicious_budget.get(detection.kind, 0) > 0
+            ]
+            for detection in suspicious:
+                suspicious_budget[detection.kind] -= 1
+            if secrets or components or suspicious:
+                interesting.append((item, secrets, components, suspicious))
             else:
                 plain.append(item)
 
         stored = 0
-        for item, secrets, components in interesting:
+        for item, secrets, components, suspicious in interesting:
             artifact_id = self._store_string(rc, object_id, item, section_lookup)
             stored += 1
             for detection in secrets:
@@ -296,6 +317,20 @@ class TriageAdapter(Adapter):
                     confidence=detection.confidence,
                     producer=self.tool,
                     method="version-banner",
+                )
+            for detection in suspicious:
+                rc.add_claim(
+                    "suspicious_string",
+                    {
+                        "category": detection.kind,
+                        "detector": f"rule:{detection.rule_id}",
+                        "preview": detection.matched,
+                    },
+                    [EvidenceRef(artifact_id, "locus")],
+                    subject_id=object_id,
+                    confidence=detection.confidence,
+                    producer=self.tool,
+                    method="string-pattern",
                 )
 
         budget = max(0, string_limit - stored)
