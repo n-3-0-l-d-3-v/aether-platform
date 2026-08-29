@@ -24,7 +24,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 complete
 
-All 25 gate checks pass, 246 tests pass.
+All 25 gate checks pass, 266 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -112,7 +112,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 246 tests
+python -m pytest              # 266 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -353,7 +353,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               246 tests
+tests/               266 tests
 ```
 
 ## Documentation

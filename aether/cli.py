@@ -616,12 +616,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     from aether.adapters.binwalk import BinwalkAdapter
     from aether.adapters.ghidra import GhidraAdapter, probe_java
+    from aether.adapters.qemu import QemuAdapter
     from aether.adapters.triage import TriageAdapter
 
     components: dict[str, Any] = {"triage": TriageAdapter().probe().to_record()}
     components["java"] = probe_java().to_record()
     components["ghidra"] = GhidraAdapter().probe().to_record()
     components["binwalk"] = BinwalkAdapter().probe().to_record()
+    components["qemu"] = QemuAdapter().probe().to_record()
 
     def render(rows: dict[str, Any]) -> None:
         print(f"aether {AETHER_VERSION}  (python {sys.version.split()[0]}, {sys.platform})")
@@ -710,6 +712,80 @@ def cmd_ask(args: argparse.Namespace) -> int:
         return 0
     finally:
         project.close()
+
+
+def cmd_trace(args: argparse.Namespace) -> int:
+    """Record which functions execute, by running the target under QEMU."""
+    from aether.adapters.qemu import QemuAdapter
+
+    if not args.allow_execution:
+        raise AetherError(
+            "tracing runs the target binary, and qemu-user is an emulator "
+            "rather than a sandbox - its system calls reach the host kernel. "
+            "Re-run with --allow-execution once you are in a disposable "
+            "environment, or record the trace elsewhere and use "
+            "'aether import-trace'."
+        )
+
+    project = _open_project(args)
+    try:
+        result = QemuAdapter(arch=args.arch).analyze(
+            project,
+            args.file,
+            object_id=args.object,
+            argv=args.arg,
+            timeout=args.timeout,
+            allow_execution=True,
+            load_base=_parse_addr(args.load_base),
+            keep_log=args.keep_log,
+        )
+        _emit(result.to_record(), args.json, _render_trace)
+        for warning in result.warnings:
+            _warn(f"! {warning}")
+        return 0
+    finally:
+        project.close()
+
+
+def cmd_import_trace(args: argparse.Namespace) -> int:
+    """Import a QEMU trace recorded on another machine."""
+    from aether.adapters.qemu import QemuAdapter
+
+    project = _open_project(args)
+    try:
+        result = QemuAdapter().import_trace(
+            project,
+            args.log,
+            object_id=args.object,
+            target=args.target,
+            load_base=_parse_addr(args.load_base),
+            run_label=args.label or "",
+        )
+        _emit(result.to_record(), args.json, _render_trace)
+        for warning in result.warnings:
+            _warn(f"! {warning}")
+        return 0
+    finally:
+        project.close()
+
+
+def _render_trace(record: dict[str, Any]) -> None:
+    details = record["details"]
+    print(f"[{record['adapter']}] run {record['run_id']}")
+    print(
+        f"  trace format {details['trace_format']}   "
+        f"{details['distinct_addresses']} distinct address(es)"
+    )
+    print(
+        f"  reached {details['functions_reached']} of "
+        f"{details['functions_known']} known function(s)"
+    )
+    if details.get("load_base"):
+        print(f"  load base 0x{int(details['load_base']):x}")
+    print(
+        f"  artifacts {record['artifacts']} ({record['artifacts_new']} new)   "
+        f"claims {record['claims']} ({record['claims_new']} new)"
+    )
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
@@ -976,6 +1052,50 @@ def build_parser() -> argparse.ArgumentParser:
         "--list", action="store_true", help="List the supported question types."
     )
     p_ask.set_defaults(func=cmd_ask)
+
+    p_trace = subparsers.add_parser(
+        "trace",
+        help="Run a binary under QEMU and record which functions execute.",
+        description=(
+            "WARNING: this executes the target. qemu-user is an emulator, not "
+            "a sandbox - system calls are passed through to the host kernel, so "
+            "a hostile binary can do anything a native process could. Use a "
+            "disposable virtual machine or container."
+        ),
+    )
+    p_trace.add_argument("file")
+    p_trace.add_argument(
+        "--allow-execution",
+        action="store_true",
+        help="Required. Confirms you accept that the target will be run.",
+    )
+    p_trace.add_argument(
+        "--arg", action="append", default=[], help="Argument to pass to the target."
+    )
+    p_trace.add_argument("--object", help="Attach to a file already in the project.")
+    p_trace.add_argument("--arch", help="Force a qemu-user architecture.")
+    p_trace.add_argument("--timeout", type=int, default=15)
+    p_trace.add_argument(
+        "--load-base", help="Address the target was loaded at, for PIE binaries."
+    )
+    p_trace.add_argument("--keep-log", action="store_true", help="Keep the raw QEMU log.")
+    p_trace.set_defaults(func=cmd_trace)
+
+    p_import_trace = subparsers.add_parser(
+        "import-trace",
+        help="Import a QEMU trace log recorded elsewhere.",
+        description=(
+            "Nothing is executed. Record the trace on an isolated machine with "
+            "'qemu-... -d exec,nochain -D trace.log ./target', then import it "
+            "here."
+        ),
+    )
+    p_import_trace.add_argument("log")
+    p_import_trace.add_argument("--object", help="File already in the project.")
+    p_import_trace.add_argument("--target", help="Ingest this file and attach to it.")
+    p_import_trace.add_argument("--load-base")
+    p_import_trace.add_argument("--label", help="What was run, e.g. the argv used.")
+    p_import_trace.set_defaults(func=cmd_import_trace)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(
