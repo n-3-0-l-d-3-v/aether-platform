@@ -22,7 +22,7 @@ already done well; the gap is everything around it.
 
 ---
 
-## Status: Phase 0 complete
+## Status: Phase 0 released, Phase 1 in progress
 
 All 25 gate checks pass, 266 tests pass.
 
@@ -44,9 +44,38 @@ python examples/demo_phase0.py
   25/25 gate checks passed
 ```
 
-Phases 1–3 (natural-language mode, multi-agent orchestration, firmware
-cartography) are deliberately **not** started. The evidence model exists to be
-proven before anything is built on top of it.
+Phase 0 is released as
+[v0.1.0-phase0](https://github.com/n-3-0-l-d-3-v/aether-platform/releases/tag/v0.1.0-phase0).
+
+**Phase 1 has landed**: a narrow natural-language interface and light
+emulation-based reachability.
+
+```bash
+$ aether ask "are there any hardcoded secrets?"
+[hardcoded_secrets] 11 claim(s) cited
+
+11 credential-shaped literals across the project: 3 private key,
+3 connection string, 2 aws access key, 1 api token, 1 ssh authorized key.
+  [clm_0217e368bbeb, clm_f2f751393fbc, clm_1284ca2d2406, +8 more]
+etc/telemetry.conf carries api token, connection string, password.
+  [clm_1284ca2d2406, clm_0853d39c8248, clm_16dc579a703b]
+  caveat: These are pattern matches. A match is credential-shaped; whether it
+          is a live credential requires a human to check.
+```
+
+Five question types, matched deterministically with **no language model
+involved** and no network request. Anything outside the set is declined with the
+supported list, never guessed at. Every explanatory line cites the claim ids it
+rests on, enforced by `validate_answer` rather than merely intended
+([ADR 0006](docs/adr/0006-narrow-nl-without-a-model.md)).
+
+Measured on a seventy-case labelled corpus: **accuracy 1.00, macro precision
+1.00, zero false accepts**. The corpus states its own limitation - vocabulary
+and cases share an author, so this measures internal consistency rather than
+performance against phrasings nobody anticipated.
+
+Phases 2 and 3 - firmware cartography, inter-binary maps, version diffing, and
+multi-agent orchestration - are deliberately **not** started.
 
 ## What works today
 
@@ -67,6 +96,10 @@ proven before anything is built on top of it.
 | MCP stdio server, 15 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
+| **P1** narrow NL interface, 5 question types | working, tested |
+| **P1** question-classification precision suite | working, 70 cases |
+| **P1** QEMU trace parsing, load-base inference, attribution | working, tested against recorded traces |
+| **P1** QEMU trace *recording* | written, **not yet run against a real QEMU install** |
 
 The two "not yet run" rows are stated plainly because they matter. The
 translation layers on both sides are fully tested; what has not executed is the
@@ -289,6 +322,55 @@ Full extraction also wants `sasquatch`, `jefferson`, and `ubi_reader`, which are
 awkward on Windows — the reason the fallback carver exists
 ([ADR 0005](docs/adr/0005-carver-fallback.md)).
 
+## Asking questions
+
+A deliberately narrow interface: five question types, and anything else is
+declined rather than answered badly.
+
+```bash
+aether ask --list                              # what it answers
+aether ask "what third-party components are in this image?"
+aether ask "is this binary hardened?" --object bin/busybox
+aether ask "what is the attack surface?"
+```
+
+| Question type | Answers from |
+|---|---|
+| `hardcoded_secrets` | `contains_hardcoded_secret` |
+| `embedded_components` | `embeds_component` |
+| `attack_surface` | `uses_risky_api`, `function_reached` |
+| `suspicious_indicators` | `suspicious_string` |
+| `binary_hardening` | `binary_hardening` |
+
+The same surface is available to agents as the `aether_ask` MCP tool, returning
+the identical structured record. Why no language model:
+[ADR 0006](docs/adr/0006-narrow-nl-without-a-model.md).
+
+## Reachability
+
+Which recovered functions actually executed - what separates "this binary
+imports `system()`" from "and `run_diagnostics` ran".
+
+> **`qemu-user` is an emulator, not a sandbox.** Its system calls pass through
+> to the host kernel, so a traced binary can do anything a native process could.
+> Aether never executes a target implicitly: `aether analyze` will not do it,
+> and `aether trace` requires `--allow-execution`. Use a disposable VM or
+> container. See [ADR 0007](docs/adr/0007-emulation-is-opt-in.md).
+
+```bash
+# on an isolated machine
+qemu-arm -d exec,nochain -D trace.log ./target
+
+# anywhere - executes nothing
+aether import-trace trace.log --object bin/target
+```
+
+Recording and importing are split exactly as they are for Ghidra. The parser
+handles `-d exec` and `-d in_asm`, prefers the former because its counts are
+real execution counts, and infers the load base of a position-independent
+binary - declining to guess when the alignment is unconvincing, so an unaligned
+trace produces no claims rather than wrong ones.
+
 ## MCP
 
 The MCP server is the interface future agents work against, and it is a peer of
@@ -346,8 +428,10 @@ aether/
     triage/          ELF/PE headers, strings, rule-based detectors
     ghidra/          headless runner, export script, importer
     binwalk/         firmware unpacking with a standard-library fallback
+    qemu/            user-mode reachability tracing and trace parsing
   export/            deterministic JSONL export
   mcp/               stdio MCP server and its tool surface
+  nl/                the narrow question interface and its answer model
   eval/              evaluation harness
 cli/                 entry point runnable without installing
 docs/                architecture and decision records
@@ -367,6 +451,8 @@ tests/               266 tests
   - [0003](docs/adr/0003-claims-versus-attestations.md) Claims and attestations are separate records
   - [0004](docs/adr/0004-mcp-without-sdk.md) The MCP server speaks the protocol directly
   - [0005](docs/adr/0005-carver-fallback.md) A bounded extraction fallback when binwalk is absent
+  - [0006](docs/adr/0006-narrow-nl-without-a-model.md) The NL interface contains no language model
+  - [0007](docs/adr/0007-emulation-is-opt-in.md) Emulation never runs implicitly
 
 ## A note on the sample data
 
