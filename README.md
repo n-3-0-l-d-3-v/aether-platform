@@ -74,6 +74,24 @@ Measured on a seventy-case labelled corpus: **accuracy 1.00, macro precision
 and cases share an author, so this measures internal consistency rather than
 performance against phrasings nobody anticipated.
 
+All 22 Phase 1 checks pass, covering both deliverables end to end:
+
+```bash
+python examples/demo_phase1.py
+```
+
+```
+  [PASS] question set is narrow, as specified (4-5 types)
+  [PASS] every explanatory line cites the claims it rests on
+  [PASS] an unsupported question is declined, not guessed at
+  [PASS] execution is refused unless explicitly allowed
+  [PASS] a function that never ran produces no reachability claim
+  [PASS] the attack-surface answer now reports observed execution
+  [PASS] question classification suite passes
+  ...
+  22/22 Phase 1 checks passed
+```
+
 Phases 2 and 3 - firmware cartography, inter-binary maps, version diffing, and
 multi-agent orchestration - are deliberately **not** started.
 
