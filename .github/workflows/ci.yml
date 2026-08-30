@@ -102,9 +102,8 @@ jobs:
       - name: README Phase 1 count must match the demonstration
         run: |
           actual=$(python examples/demo_phase1.py | grep -oE '[0-9]+/[0-9]+ Phase 1 checks passed' | grep -oE '^[0-9]+')
-          # head -1: "All 22 Phase 1 checks" contains two numbers, and without
-          # it the shell compares "22
-1" against "22".
+          # head -1 matters: "All 22 Phase 1 checks" contains two numbers,
+          # so without it the comparison sees both instead of just the count.
           claimed=$(grep -oE 'All [0-9]+ Phase 1 checks pass' README.md | grep -oE '[0-9]+' | head -1)
           echo "README claims ${claimed}, demo reports ${actual}"
           if [ "$claimed" != "$actual" ]; then
