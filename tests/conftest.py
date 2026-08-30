@@ -135,6 +135,27 @@ def project(tmp_path):
     instance.close()
 
 
+@pytest.fixture(scope="session")
+def analysed_firmware(tmp_path_factory, firmware_sample):
+    """A fully unpacked firmware project, built once for the whole session.
+
+    Unpacking and triaging the demo image is the most expensive thing the suite
+    does, and every read-only test that wants a populated graph was paying for
+    it again. Shared deliberately: callers must not write to it. Anything that
+    mutates should take the function-scoped `project` fixture instead.
+    """
+    from aether.adapters.binwalk import BinwalkAdapter
+    from aether.project import Project
+
+    root = tmp_path_factory.mktemp("analysed-firmware")
+    instance = Project.create(str(root / "proj"), "shared-firmware")
+    BinwalkAdapter().analyze(
+        instance, firmware_sample, logical_path="demo_firmware.bin"
+    )
+    yield instance
+    instance.close()
+
+
 @pytest.fixture()
 def triaged_elf(project, elf_sample):
     """A project with the ELF sample triaged, and its file artifact id."""

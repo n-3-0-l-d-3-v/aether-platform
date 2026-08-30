@@ -11,7 +11,6 @@ import json
 
 import pytest
 
-from aether.adapters.binwalk import BinwalkAdapter
 from aether.errors import EvidenceError
 from aether.nl import ask, classify, describe_supported, score_all
 from aether.nl.model import Answer, AnswerError, AnswerLine, Finding, validate_answer
@@ -19,10 +18,13 @@ from aether.nl.questions import MATCH_THRESHOLD, QUESTION_TYPES, normalize
 
 
 @pytest.fixture()
-def firmware_project(project, firmware_sample):
-    """A project with the demo firmware fully unpacked and triaged."""
-    BinwalkAdapter().analyze(project, firmware_sample, logical_path="demo_firmware.bin")
-    return project
+def firmware_project(analysed_firmware):
+    """The shared analysed firmware project.
+
+    Every test here only asks questions, and asking never writes, so the
+    expensive unpack is done once per session rather than once per test.
+    """
+    return analysed_firmware
 
 
 # -- classification ---------------------------------------------------------
