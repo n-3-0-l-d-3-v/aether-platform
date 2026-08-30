@@ -1,7 +1,7 @@
 # Aether architecture
 
-This document describes what Phase 0 actually is, and — more usefully — why the
-pieces are shaped the way they are. Individual decisions with real trade-offs
+This document describes what Aether actually is through Phase 1, and — more
+usefully — why the pieces are shaped the way they are. Individual decisions with real trade-offs
 have their own records in [adr/](adr/).
 
 ## The one-sentence version
@@ -21,6 +21,13 @@ thing serializes to something a human can diff.
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
+│  Question interface  (aether/nl/)                Phase 1     │
+│  Five question types, classified deterministically. Answers  │
+│  are templates over claims; every line cites claim ids.      │
+│  Reads the graph. Never writes to it.                        │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────┐
 │  Project store  (aether/project/store.py)                    │
 │  The only sanctioned way in or out. Writes happen inside a   │
 │  run() block, so provenance cannot be forgotten.             │
@@ -35,6 +42,7 @@ thing serializes to something a human can diff.
 ┌───────────────────────────▼──────────────────────────────────┐
 │  Adapters  (aether/adapters/)                                │
 │  triage (built in) · ghidra headless · binwalk               │
+│  qemu user-mode (Phase 1, opt-in)                            │
 │  Translation only. No adapter invents analysis.              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -43,9 +51,9 @@ thing serializes to something a human can diff.
 
 ### Artifact
 
-A concrete, locatable piece of evidence. Twelve kinds in Phase 0: `file`,
-`section`, `function`, `string`, `xref`, `symbol`, `import`, `export`,
-`decompilation`, `byte_span`, `signature_hit`.
+A concrete, locatable piece of evidence. Twelve kinds: `file`, `section`,
+`function`, `string`, `xref`, `symbol`, `import`, `export`, `decompilation`,
+`byte_span`, `signature_hit`, and `trace_hit` (Phase 1, a runtime observation).
 
 Each kind declares which of its fields constitute *identity*. The id is
 `blake2b(kind, object_id, identity_fields)`, which produces two properties that
@@ -79,9 +87,9 @@ A second engine never silently rewrites what the first concluded.
 
 ### Claim
 
-A structured assertion. Ten predicates in Phase 0, from
-`file_format_identified` through `contains_hardcoded_secret` and
-`uses_risky_api`.
+A structured assertion. Twelve predicates, from `file_format_identified`
+through `contains_hardcoded_secret` and `uses_risky_api`, plus Phase 1's
+`suspicious_string` and `function_reached`.
 
 A claim is `predicate + typed fields + evidence refs in named roles`. It carries
 no producer and no timestamp, so its id is content-addressed. Roles are `locus`
@@ -219,6 +227,78 @@ Two behaviours worth noting, both learned from output quality:
 Archive members are attacker-controlled, so extraction paths go through
 `safe_join` (zip-slip) and a byte/file budget.
 
+### qemu (Phase 1)
+
+Answers one question: which recovered functions actually executed. That is the
+difference between "this binary imports `system()`" and "and `run_diagnostics`
+ran", and it is the only thing this adapter claims.
+
+Split into recording and importing, for the same reason the Ghidra bridge is:
+running QEMU needs QEMU, and parsing its output needs nothing. The parser
+handles both `-d exec` and `-d in_asm`, preferring the former because `in_asm`
+records each block once *when translated*, so its counts are translation counts
+rather than execution counts - and it says so in a warning rather than
+presenting them as the same thing.
+
+A position-independent binary is loaded somewhere other than where it was
+linked, so its trace addresses match no known function. `infer_load_base` looks
+for the single offset that aligns the most trace addresses with function entry
+points, and returns nothing when the alignment is unconvincing. An unaligned
+trace therefore produces no reachability claims rather than wrong ones.
+
+Execution never happens implicitly. `qemu-user` is an emulator, not a sandbox -
+its system calls reach the host kernel - so `aether analyze` will not invoke it
+and the CLI requires `--allow-execution`. See
+[ADR 0007](adr/0007-emulation-is-opt-in.md).
+
+## The question interface (Phase 1)
+
+Five question types: hardcoded secrets, embedded components, attack surface,
+suspicious indicators, and exploit mitigations. Each declares the claim
+predicates that answer it, so the path from a question to bytes is explicit:
+
+```
+question -> question type -> predicates -> claims -> evidence artifacts
+                                                  -> addresses in a file
+```
+
+**No language model is involved**, and the reasons are in
+[ADR 0006](adr/0006-narrow-nl-without-a-model.md). The short version: the
+citation invariant is satisfiable by templates and not by generated prose,
+local-first forbids a hosted model, and deterministic classification is what
+makes precision reproducible.
+
+### The citation invariant
+
+The specification permits free text in exactly one place - "explanations that
+reference Claim IDs" - and `aether/nl/model.py` makes that the only
+representable shape. An `Answer` is a list of `AnswerLine`, and every line
+either cites at least one claim id or is explicitly marked as a caveat.
+`validate_answer` runs on every answer before it leaves the package, and a test
+asserts the property holds across all five question types against real
+projects.
+
+A sentence asserting something about a binary without naming its evidence is
+not constructible here. That is the difference between intending not to emit
+unevidenced prose and being unable to.
+
+### Classification, and declining
+
+Intent matching is weighted term scoring over a curated vocabulary. Single words
+match whole tokens, with light singularization so the vocabulary can be written
+once in the singular; multi-word phrases match as substrings. Below the
+threshold, the question is **declined** and the supported set is returned.
+
+Declining is a feature, not a gap. A narrow interface that declines is
+measurable; one that guesses produces confident answers to questions nobody
+asked. `eval/suites/nl_questions.json` scores exactly that: seventy labelled
+cases, twenty of them out of scope, with false accepts counted separately and
+gating the suite at zero.
+
+The corpus documents its own limitation. Vocabulary and cases share an author,
+so the numbers measure internal consistency rather than performance against
+phrasings nobody anticipated.
+
 ## Export format
 
 Two trees:
@@ -295,12 +375,24 @@ absent must fail, a forbidden pattern that fires must fail, and an expectation
 demanding the wrong evidence kind must fail. A harness that cannot fail proves
 nothing.
 
-## Deliberate non-goals in Phase 0
+## Deliberate non-goals
 
-Per the build specification: no natural-language interface, no multi-agent
-orchestration, no firmware cartography, no dynamic analysis, no GUI, no cloud.
-No new disassembler or decompiler, ever.
+Phase 0 shipped with no natural-language interface, no dynamic analysis, no
+multi-agent orchestration, no cartography, no GUI, and no cloud. Phase 1 lifted
+the first two, narrowly and on the terms above.
 
-The evidence model exists to be proven before anything is built on top of it.
-Phase 1 begins only once that gate is demonstrably passed —
-`python examples/demo_phase0.py` is what "demonstrably" means here.
+Still explicitly not started:
+
+- **Firmware cartography** (Phase 2) - inter-binary maps, sink reachability
+  across files, version tracking, and diffing. The question vocabulary treats
+  diffing as out of scope on purpose, so "diff this against the previous
+  version" is declined rather than answered as an SBOM request.
+- **Multi-agent orchestration and approval workflows** (Phase 3). The evidence
+  model already carries what these will need - agent-produced claims land as
+  `proposed`, attributed to the agent - but nothing orchestrates them.
+- **Broader natural language.** Five question types is the specification's
+  number, and a test pins the ceiling.
+- **A new disassembler or decompiler.** Never.
+
+`python examples/demo_phase0.py` remains the gate demonstration for Phase 0;
+`python examples/demo_phase1.py` does the same for Phase 1.

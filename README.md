@@ -82,7 +82,7 @@ multi-agent orchestration - are deliberately **not** started.
 | Capability | State |
 |---|---|
 | Project model, SQLite persistence, migrations | working |
-| Evidence graph: 11 artifact kinds, 10 claim predicates | working |
+| Evidence graph: 12 artifact kinds, 12 claim predicates | working |
 | Content-addressed ids with cross-engine convergence | working, tested |
 | Provenance ledger; every write inside a transactional run | working |
 | ELF/PE triage: headers, sections, symbol tables, mitigations | working |
@@ -93,7 +93,7 @@ multi-agent orchestration - are deliberately **not** started.
 | Ghidra headless **runner** | written, **not yet run against a real Ghidra install** |
 | binwalk subprocess path | written, **not yet run against a real binwalk install** |
 | Deterministic Git-friendly export | working, tested |
-| MCP stdio server, 15 tools | working, tested |
+| MCP stdio server, 16 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
 | **P1** narrow NL interface, 5 question types | working, tested |
@@ -381,10 +381,11 @@ aether mcp              # stdio JSON-RPC
 aether mcp --read-only  # hide and refuse every write tool
 ```
 
-Fifteen tools: inventory, artifact and claim queries, string search,
-decompilation retrieval, graph traversal, schema discovery, provenance, plus
-`aether_submit_claim` and `aether_annotate` for writes. Agent-submitted claims
-go through exactly the validation an adapter does and land as `proposed`.
+Sixteen tools: inventory, artifact and claim queries, string search,
+decompilation retrieval, graph traversal, schema discovery, provenance,
+`aether_ask` for the question interface, plus `aether_submit_claim` and
+`aether_annotate` for writes. Agent-submitted claims go through exactly the
+validation an adapter does and land as `proposed`.
 
 ## Git-friendly export
 
