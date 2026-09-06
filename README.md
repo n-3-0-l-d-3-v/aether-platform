@@ -22,9 +22,9 @@ already done well; the gap is everything around it.
 
 ---
 
-## Status: Phase 0 released, Phase 1 in progress
+## Status: Phase 0 released, Phase 1 landed, Phase 2 underway
 
-All 25 gate checks pass, 266 tests pass.
+All 25 gate checks pass, 290 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -92,15 +92,44 @@ python examples/demo_phase1.py
   22/22 Phase 1 checks passed
 ```
 
-Phases 2 and 3 - firmware cartography, inter-binary maps, version diffing, and
-multi-agent orchestration - are deliberately **not** started.
+**Phase 2 is underway**, landed as two narrow, real capabilities rather than the
+full "cartography and campaigns" surface at once:
+
+```bash
+$ aether map
+[cartography] run run_b05687d13748b3bad67b684d986c0f8e
+  8 file(s) considered, 1 link(s) found
+
+consumer   symbol             provider           conf
+---------  -----------------  -----------------  ----
+bin/app    EVP_EncryptUpdate  lib/libcrypto.so   0.6
+
+$ aether diff-versions ../previous-build --record
+kind     component  from      to
+-------  ---------  --------  ------
+changed  openssl    1.0.2u    3.0.1
+
+recorded 1 component_version_changed claim(s)
+```
+
+Cross-binary import/export linking resolves which file's undefined symbol is
+satisfied by which other file's exported one, by name - a name match, not proof
+of a live dependency, and the resulting claims say so at reduced confidence.
+Version diffing compares embedded components across two independently analysed
+projects and can record what changed, evidenced in the newer project.
+
+Not attempted: cross-binary sink reachability, full campaign/fleet tracking, or
+a general evidence-graph diff. See
+[ADR 0008](docs/adr/0008-cartography-scope.md) for why the scope stopped there.
+Phase 3 - multi-agent orchestration and approval workflows - is deliberately
+**not** started.
 
 ## What works today
 
 | Capability | State |
 |---|---|
 | Project model, SQLite persistence, migrations | working |
-| Evidence graph: 12 artifact kinds, 12 claim predicates | working |
+| Evidence graph: 12 artifact kinds, 14 claim predicates | working |
 | Content-addressed ids with cross-engine convergence | working, tested |
 | Provenance ledger; every write inside a transactional run | working |
 | ELF/PE triage: headers, sections, symbol tables, mitigations | working |
@@ -111,13 +140,16 @@ multi-agent orchestration - are deliberately **not** started.
 | Ghidra headless **runner** | written, **not yet run against a real Ghidra install** |
 | binwalk subprocess path | written, **not yet run against a real binwalk install** |
 | Deterministic Git-friendly export | working, tested |
-| MCP stdio server, 16 tools | working, tested |
+| MCP stdio server, 17 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
 | **P1** narrow NL interface, 5 question types | working, tested |
 | **P1** question-classification precision suite | working, 70 cases |
 | **P1** QEMU trace parsing, load-base inference, attribution | working, tested against recorded traces |
 | **P1** QEMU trace *recording* | written, **not yet run against a real QEMU install** |
+| **P2** cross-binary import/export linking | working, tested |
+| **P2** version diffing between two projects | working, tested |
+| **P2** cross-binary sink reachability, campaign tracking | not started (see ADR 0008) |
 
 The two "not yet run" rows are stated plainly because they matter. The
 translation layers on both sides are fully tested; what has not executed is the
@@ -163,7 +195,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 266 tests
+python -m pytest              # 290 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -399,7 +431,7 @@ aether mcp              # stdio JSON-RPC
 aether mcp --read-only  # hide and refuse every write tool
 ```
 
-Sixteen tools: inventory, artifact and claim queries, string search,
+Seventeen tools: inventory, artifact and claim queries, string search,
 decompilation retrieval, graph traversal, schema discovery, provenance,
 `aether_ask` for the question interface, plus `aether_submit_claim` and
 `aether_annotate` for writes. Agent-submitted claims go through exactly the
@@ -448,6 +480,7 @@ aether/
     ghidra/          headless runner, export script, importer
     binwalk/         firmware unpacking with a standard-library fallback
     qemu/            user-mode reachability tracing and trace parsing
+  cartography/       cross-binary linking and version diffing
   export/            deterministic JSONL export
   mcp/               stdio MCP server and its tool surface
   nl/                the narrow question interface and its answer model
@@ -456,7 +489,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               266 tests
+tests/               290 tests
 ```
 
 ## Documentation
@@ -472,6 +505,7 @@ tests/               266 tests
   - [0005](docs/adr/0005-carver-fallback.md) A bounded extraction fallback when binwalk is absent
   - [0006](docs/adr/0006-narrow-nl-without-a-model.md) The NL interface contains no language model
   - [0007](docs/adr/0007-emulation-is-opt-in.md) Emulation never runs implicitly
+  - [0008](docs/adr/0008-cartography-scope.md) Phase 2 lands as two narrow, real capabilities
 
 ## A note on the sample data
 

@@ -12,3 +12,4 @@ where the answer is not obvious from the code.
 | [0005](0005-carver-fallback.md) | A bounded extraction fallback when binwalk is absent |
 | [0006](0006-narrow-nl-without-a-model.md) | The natural-language interface contains no language model |
 | [0007](0007-emulation-is-opt-in.md) | Emulation never runs implicitly |
+| [0008](0008-cartography-scope.md) | Phase 2 lands as two narrow, real capabilities |

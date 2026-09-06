@@ -1,6 +1,6 @@
 # Aether architecture
 
-This document describes what Aether actually is through Phase 1, and — more
+This document describes what Aether actually is through Phase 2, and — more
 usefully — why the pieces are shaped the way they are. Individual decisions with real trade-offs
 have their own records in [adr/](adr/).
 
@@ -87,9 +87,10 @@ A second engine never silently rewrites what the first concluded.
 
 ### Claim
 
-A structured assertion. Twelve predicates, from `file_format_identified`
+A structured assertion. Fourteen predicates, from `file_format_identified`
 through `contains_hardcoded_secret` and `uses_risky_api`, plus Phase 1's
-`suspicious_string` and `function_reached`.
+`suspicious_string` and `function_reached`, plus Phase 2's
+`imports_resolved_by` and `component_version_changed`.
 
 A claim is `predicate + typed fields + evidence refs in named roles`. It carries
 no producer and no timestamp, so its id is content-addressed. Roles are `locus`
@@ -375,24 +376,59 @@ absent must fail, a forbidden pattern that fires must fail, and an expectation
 demanding the wrong evidence kind must fail. A harness that cannot fail proves
 nothing.
 
+## Cartography (Phase 2)
+
+Phase 2 of the specification - "Firmware Cartography & Campaigns" - is large:
+inter-binary maps, sink reachability across files, version tracking, and
+diffing. `aether/cartography/` lands two narrow, real slices of it rather than
+the whole surface; [ADR 0008](adr/0008-cartography-scope.md) is the scoping
+decision and covers the parts deliberately left for later.
+
+**Cross-binary linking** (`link_imports`) resolves each file's imports against
+every other file's exports in the same project, by symbol name. That is the
+mechanical substance of an inter-binary map: which binary's undefined symbol is
+satisfied by which other binary's definition. It is a join over two
+independent symbol tables, not a direct reading of either file's own
+structure, so the resulting `imports_resolved_by` claims score below what a
+header parse earns elsewhere in Aether - lower still when more than one file
+exports the same name, in which case every candidate is recorded rather than
+one being guessed. Common libc/CRT symbols are excluded by default: at
+firmware scale nearly every binary imports them, and including them would
+produce a graph dense with edges that say nothing about this firmware's
+particular structure.
+
+**Version diffing** (`aether/cartography/diff.py`) compares `embeds_component`
+claims between two independently analysed projects, matched by component name
+since two different builds share no artifact ids - even identical bytes only
+converge *within* one project (ADR 0002). It stays a pure reporting function by
+default, so a wrong join costs a wrong answer rather than a corrupted graph;
+`record_version_changes` optionally writes a `component_version_changed` claim
+into the newer project only, backed by evidence that already exists there.
+
+Not attempted: cross-binary sink reachability (which would traverse
+`imports_resolved_by` edges from a QEMU-observed `function_reached` claim in
+one binary into another's risky-API usage), full campaign/fleet tracking across
+many images, and a general evidence-graph diff beyond components.
+
 ## Deliberate non-goals
 
 Phase 0 shipped with no natural-language interface, no dynamic analysis, no
 multi-agent orchestration, no cartography, no GUI, and no cloud. Phase 1 lifted
-the first two, narrowly and on the terms above.
+the first two, narrowly and on the terms above; Phase 2 lifted cartography,
+narrowly, on the terms just described.
 
 Still explicitly not started:
 
-- **Firmware cartography** (Phase 2) - inter-binary maps, sink reachability
-  across files, version tracking, and diffing. The question vocabulary treats
-  diffing as out of scope on purpose, so "diff this against the previous
-  version" is declined rather than answered as an SBOM request.
+- **Cross-binary sink reachability and campaign/fleet tracking** (rest of
+  Phase 2). See [ADR 0008](adr/0008-cartography-scope.md).
 - **Multi-agent orchestration and approval workflows** (Phase 3). The evidence
   model already carries what these will need - agent-produced claims land as
   `proposed`, attributed to the agent - but nothing orchestrates them.
 - **Broader natural language.** Five question types is the specification's
-  number, and a test pins the ceiling.
+  number, and a test pins the ceiling. The question vocabulary treats diffing
+  as out of scope on purpose, so "diff this against the previous version" is
+  declined rather than answered as an SBOM request.
 - **A new disassembler or decompiler.** Never.
 
-`python examples/demo_phase0.py` remains the gate demonstration for Phase 0;
-`python examples/demo_phase1.py` does the same for Phase 1.
+`python examples/demo_phase0.py` and `python examples/demo_phase1.py` remain
+the gate demonstrations for their phases.
