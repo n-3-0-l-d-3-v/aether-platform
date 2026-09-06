@@ -966,6 +966,40 @@ def cmd_reach(args: argparse.Namespace) -> int:
         project.close()
 
 
+def cmd_campaign(args: argparse.Namespace) -> int:
+    """Correlate several projects into campaigns by shared files or components.
+
+    Takes explicit project paths rather than opening --project, because a
+    campaign is inherently a comparison across many projects, none of which is
+    "the current one" by default.
+    """
+    from aether.cartography.campaign import correlate_projects
+
+    if len(args.projects) < 2:
+        raise AetherError("need at least two projects to correlate")
+
+    opened = {path: Project.open(path, read_only=True) for path in args.projects}
+    try:
+        report = correlate_projects(opened, min_shared_components=args.min_shared_components)
+
+        def render(record: dict[str, Any]) -> None:
+            if not record["campaigns"]:
+                print("no correlations found; every project stands alone")
+            for index, members in enumerate(record["campaigns"], start=1):
+                print(f"campaign {index}: {', '.join(members)}")
+                for edge in record["edges"]:
+                    if edge["left"] in members and edge["right"] in members:
+                        print(f"    {edge['left']} <-> {edge['right']}  ({edge['kind']}: {edge['detail']})")
+            if record["singletons"]:
+                print(f"\nno correlation found for: {', '.join(record['singletons'])}")
+
+        _emit(report.to_record(), args.json, render)
+        return 0
+    finally:
+        for opened_project in opened.values():
+            opened_project.close()
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -1330,6 +1364,28 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_reach.set_defaults(func=cmd_reach)
+
+    p_campaign = subparsers.add_parser(
+        "campaign",
+        help="Correlate several projects into campaigns by shared files or "
+        "component fingerprints.",
+        description=(
+            "Two signals only: an identical file (by SHA-256) is conclusive; "
+            "several shared component versions is a weaker signal, gated by "
+            "--min-shared-components so that one common library is never "
+            "mistaken for a lineage. Nothing here attempts fuzzy vendor or "
+            "product-name matching."
+        ),
+    )
+    p_campaign.add_argument("projects", nargs="+", help="Project directories to correlate.")
+    p_campaign.add_argument(
+        "--min-shared-components",
+        type=int,
+        default=2,
+        help="Component-version pairs two projects must share to correlate "
+        "when they share no identical file.",
+    )
+    p_campaign.set_defaults(func=cmd_campaign)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(

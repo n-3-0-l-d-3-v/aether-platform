@@ -411,6 +411,32 @@ def _diff_graph(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     return diff_snapshots(baseline, target).to_record()
 
 
+def _campaign(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    from aether.cartography.campaign import correlate_projects
+    from aether.project.store import Project as ProjectClass
+
+    other_paths = list(args.get("other_projects") or [])
+    if not other_paths:
+        raise EvidenceError(
+            "aether_campaign compares this project against at least one other "
+            "project path; other_projects was empty"
+        )
+    opened = {"this_project": project}
+    to_close = []
+    try:
+        for path in other_paths:
+            opened_project = ProjectClass.open(str(path), read_only=True)
+            opened[str(path)] = opened_project
+            to_close.append(opened_project)
+        report = correlate_projects(
+            opened, min_shared_components=int(args.get("min_shared_components", 2))
+        )
+        return report.to_record()
+    finally:
+        for opened_project in to_close:
+            opened_project.close()
+
+
 def _reach(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     from aether.cartography.reachability import trace_cross_binary_reachability
 
@@ -851,6 +877,31 @@ _register(
         ),
         _map,
         writes=True,
+    )
+)
+
+_register(
+    Tool(
+        "aether_campaign",
+        "Correlate this project against one or more other project directories "
+        "on disk, grouping them into campaigns by shared evidence: an "
+        "identical file (same SHA-256) is a conclusive signal; several shared "
+        "component-version pairs (gated by min_shared_components, so one "
+        "common library is never mistaken for a lineage) is a weaker one. No "
+        "fuzzy vendor or product-name matching is attempted - only what the "
+        "evidence graphs directly show.",
+        _schema(
+            {
+                "other_projects": {
+                    "type": "array",
+                    "description": "Filesystem paths to other project directories.",
+                    "items": {"type": "string"},
+                },
+                "min_shared_components": {"type": "integer", "default": 2},
+            },
+            ["other_projects"],
+        ),
+        _campaign,
     )
 )
 

@@ -22,9 +22,9 @@ already done well; the gap is everything around it.
 
 ---
 
-## Status: Phase 0 released, Phase 1 landed, Phase 2 underway
+## Status: Phase 0 released, Phase 1 landed, Phase 2 landed
 
-All 25 gate checks pass, 317 tests pass.
+All 25 gate checks pass, 332 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -92,8 +92,8 @@ python examples/demo_phase1.py
   22/22 Phase 1 checks passed
 ```
 
-**Phase 2 is underway**, landed as four narrow, real capabilities rather than
-the full "cartography and campaigns" surface at once:
+**Phase 2 has landed**, as four narrow, real capabilities rather than the full
+"cartography and campaigns" surface at once:
 
 ```bash
 $ aether map
@@ -168,10 +168,25 @@ python examples/demo_phase2.py
   14/14 Phase 2 checks passed
 ```
 
-Not attempted: full campaign/fleet tracking - correlating many firmware images
-as variants of one product line needs a notion of "these images belong
-together" that nothing in the evidence model expresses yet. See
-[ADR 0008](docs/adr/0008-cartography-scope.md). Phase 3 - multi-agent
+**Campaign/fleet correlation** groups several project directories - not
+artifacts within one project - by shared evidence: an identical file (same
+SHA-256) is conclusive; several shared component-version pairs is a weaker
+signal, gated by a threshold so one common library is never mistaken for a
+lineage.
+
+```bash
+$ aether campaign ./firmware-v1 ./firmware-v2 ./unrelated-device
+campaign 1: ./firmware-v1, ./firmware-v2
+    ./firmware-v1 <-> ./firmware-v2  (shared_file: 1 identical file(s), e.g. bin/bootloader (f4e90c13...))
+
+no correlation found for: ./unrelated-device
+```
+
+All four items the specification names under "Firmware Cartography &
+Campaigns" now have a landed, scoped slice - see
+[ADR 0008](docs/adr/0008-cartography-scope.md) for exactly where each line was
+drawn, including an honest limitation the component-fingerprint signal
+surfaced against this repository's own test fixtures. Phase 3 - multi-agent
 orchestration and approval workflows - is deliberately **not** started.
 
 ## What works today
@@ -190,7 +205,7 @@ orchestration and approval workflows - is deliberately **not** started.
 | Ghidra headless **runner** | written, **not yet run against a real Ghidra install** |
 | binwalk subprocess path | written, **not yet run against a real binwalk install** |
 | Deterministic Git-friendly export | working, tested |
-| MCP stdio server, 19 tools | working, tested |
+| MCP stdio server, 20 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
 | **P1** narrow NL interface, 5 question types | working, tested |
@@ -201,7 +216,7 @@ orchestration and approval workflows - is deliberately **not** started.
 | **P2** version diffing between two projects | working, tested |
 | **P2** cross-binary sink reachability | working, tested |
 | **P2** general evidence-graph diff | working, tested |
-| **P2** campaign/fleet tracking | not started (see ADR 0008) |
+| **P2** campaign/fleet correlation across projects | working, tested |
 
 The two "not yet run" rows are stated plainly because they matter. The
 translation layers on both sides are fully tested; what has not executed is the
@@ -247,7 +262,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 317 tests
+python -m pytest              # 332 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -483,7 +498,7 @@ aether mcp              # stdio JSON-RPC
 aether mcp --read-only  # hide and refuse every write tool
 ```
 
-Nineteen tools: inventory, artifact and claim queries, string search,
+Twenty tools: inventory, artifact and claim queries, string search,
 decompilation retrieval, graph traversal, schema discovery, provenance,
 `aether_ask` for the question interface, plus `aether_submit_claim` and
 `aether_annotate` for writes. Agent-submitted claims go through exactly the
@@ -541,7 +556,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               317 tests
+tests/               332 tests
 ```
 
 ## Documentation
@@ -557,7 +572,7 @@ tests/               317 tests
   - [0005](docs/adr/0005-carver-fallback.md) A bounded extraction fallback when binwalk is absent
   - [0006](docs/adr/0006-narrow-nl-without-a-model.md) The NL interface contains no language model
   - [0007](docs/adr/0007-emulation-is-opt-in.md) Emulation never runs implicitly
-  - [0008](docs/adr/0008-cartography-scope.md) Phase 2 lands as two narrow, real capabilities
+  - [0008](docs/adr/0008-cartography-scope.md) Phase 2 lands as four narrow, real capabilities
 
 ## A note on the sample data
 

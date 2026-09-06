@@ -1,6 +1,7 @@
-# ADR 0008: Phase 2 lands as two narrow, real capabilities
+# ADR 0008: Phase 2 lands as four narrow, real capabilities
 
-**Status:** accepted · **Date:** 2026-08-28
+**Status:** accepted · **Date:** 2026-08-28 (revised 2026-08-28 - see the
+addendum: two items originally deferred here were completed the same day)
 
 ## Context
 
@@ -36,11 +37,13 @@ Struck through, not deleted, so this ADR still records the reasoning at the
 time the scoping decision was made.)*
 
 - ~~**Cross-binary sink reachability.**~~ Completed. See the addendum.
-- **Full campaign / fleet tracking** - correlating many firmware images as
-  variants of one product line. That needs a notion of "these N images are the
-  same campaign" that nothing in the evidence model currently expresses. Still
-  not attempted.
+- ~~**Full campaign / fleet tracking.**~~ Completed, narrowly. See the addendum.
 - ~~**A general evidence-graph diff.**~~ Completed. See the addendum.
+
+All four Phase 2 items named in the specification now have a landed, scoped
+slice. None of the four is the full research-scale version of what "Firmware
+Cartography & Campaigns" could mean - see each addendum entry for exactly
+where the line was drawn.
 
 ## Why a name match is honestly weak evidence, and the model says so
 
@@ -114,7 +117,29 @@ another live project, an export against another export, or a project against
 its own export - the last of which is asserted to be identical in a test,
 since anything else would mean the export was lossy.
 
-Full campaign/fleet tracking - correlating many firmware images as variants of
-one product line - remains genuinely deferred. It needs a notion of "these N
-images belong together" that nothing in the evidence model expresses yet, and
-is a larger design decision than either of the above.
+**Campaign/fleet correlation** (`aether/cartography/campaign.py`) groups
+several *projects* - not artifacts within one project - into campaigns using
+two mechanical signals: an identical file (matching SHA-256) is conclusive; a
+threshold number of shared component-version pairs (default two, configurable)
+is a weaker but still real signal, deliberately gated so that one common
+library shared by coincidence at firmware scale is never mistaken for a
+lineage. Projects are grouped by these edges with union-find, so correlation
+is transitive: if A matches B and B matches C, all three land in one campaign
+whether or not A and C correlate directly.
+
+This stays a read-only reporting function across N independent project
+databases, for the same reason version diffing does: there is no single graph
+a "these projects are a campaign" claim could honestly live in without citing
+artifacts from a database it is not part of. Real-world testing surfaced an
+honest limitation worth stating rather than hiding: two genuinely unrelated
+sample binaries in this repository's own test fixtures correlate via the
+component-fingerprint signal, because both happen to embed the same
+placeholder `busybox`/`openssl` version banners used across the evaluation
+suite. The threshold reduces this kind of false positive; it does not
+eliminate it, and nothing claims otherwise.
+
+Nothing here attempts fuzzy vendor or product-name matching, semantic
+versioning reasoning, or any correlation signal not directly observable in two
+projects' own evidence graphs. A campaign concept that model those things -
+should one prove necessary - would be a substantially larger effort building
+on this mechanical foundation, not a refinement of it.
