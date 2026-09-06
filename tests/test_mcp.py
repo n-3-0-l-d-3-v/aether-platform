@@ -338,3 +338,35 @@ def test_read_only_servers_hide_and_refuse_write_tools(project, elf_sample):
                                                     "evidence": [{"artifact_id": "a"}]})
     assert result["isError"] is True
     assert "read-only" in result["content"][0]["text"]
+
+
+def test_aether_map_resolves_cross_binary_links(project):
+    with project.run(tool="t", tool_version="1", adapter="test") as rc:
+        provider = rc.artifact(
+            "file",
+            {"path": "lib/libcrypto.so", "sha256": "a" * 64, "size": 1, "format": "elf", "source": "ingest"},
+        )
+        rc.artifact("export", {"name": "EVP_EncryptUpdate", "addr": 0x1000}, object_id=provider.artifact_id)
+        consumer = rc.artifact(
+            "file",
+            {"path": "bin/app", "sha256": "b" * 64, "size": 1, "format": "elf", "source": "ingest"},
+        )
+        rc.artifact("import", {"name": "EVP_EncryptUpdate"}, object_id=consumer.artifact_id)
+
+    server = MCPServer(project)
+    result = call(server, "aether_map")["structuredContent"]
+    assert result["links_found"] == 1
+    assert result["graph"]["edges"][0]["symbol"] == "EVP_EncryptUpdate"
+
+
+def test_aether_map_is_hidden_and_refused_read_only(project):
+    with project.run(tool="t", tool_version="1", adapter="test") as rc:
+        rc.artifact(
+            "file", {"path": "bin/app", "sha256": "c" * 64, "size": 1, "format": "elf", "source": "ingest"}
+        )
+    readonly = MCPServer(project, read_only=True)
+    names = {t["name"] for t in request(readonly, "tools/list")["result"]["tools"]}
+    assert "aether_map" not in names
+    result = call(readonly, "aether_map")
+    assert result["isError"] is True
+    assert "read-only" in result["content"][0]["text"]

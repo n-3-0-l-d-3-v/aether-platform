@@ -403,6 +403,19 @@ def _ask(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     return answer.to_record()
 
 
+def _map(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    from aether.cartography import dependency_graph, link_imports
+
+    result = link_imports(project, ignore_ubiquitous=not args.get("include_ubiquitous", False))
+    return {
+        "run_id": result.run_id,
+        "files_considered": result.files_considered,
+        "links_found": result.links_found,
+        "warnings": result.warnings,
+        "graph": dependency_graph(project) if result.links_found else {"nodes": [], "edges": []},
+    }
+
+
 def _describe_schema(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     registries = describe_registries()
     if args.get("predicate"):
@@ -751,6 +764,34 @@ _register(
             ["question"],
         ),
         _ask,
+    )
+)
+
+_register(
+    Tool(
+        "aether_map",
+        "Resolve cross-binary import/export links within this project: which "
+        "file's undefined symbol is satisfied by which other file's exported "
+        "one, by name. This is the mechanical basis of an inter-binary call "
+        "graph, not proof of a live dependency - dynamic linker search order, "
+        "versioned symbols, and preloading are invisible to a name match, and "
+        "the resulting imports_resolved_by claims say so. Writes claims, so "
+        "call it once analysis of the relevant files is complete; call it "
+        "again after adding more files to pick up new links.",
+        _schema(
+            {
+                "include_ubiquitous": {
+                    "type": "boolean",
+                    "description": "Also link common libc/CRT symbols "
+                    "(malloc, memcpy, ...), which are excluded by default "
+                    "because at firmware scale they dominate the link count "
+                    "without saying anything about this firmware's structure.",
+                    "default": False,
+                },
+            }
+        ),
+        _map,
+        writes=True,
     )
 )
 
