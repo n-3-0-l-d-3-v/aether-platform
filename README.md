@@ -28,7 +28,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 released, Phase 1 and 2 landed, Phase 3 partial
 
-All 25 gate checks pass, 350 tests pass.
+All 25 gate checks pass, 368 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -213,14 +213,32 @@ tool registry and asserts no tool name contains "approve" or "reject". An
 agent can see whether its own proposal is still pending; it cannot close the
 loop itself. See [ADR 0009](docs/adr/0009-approval-is-cli-only.md).
 
-**Full specialist agents** and **broader Accessible Mode** are the two Phase 3
-items *not* attempted, and deliberately so rather than silently: the first
-means picking an LLM vendor and accepting cloud calls, which conflicts with
-Yugen's own "local-first, no cloud analysis by default" principle; the second
-means loosening the deliberately narrow, measured question set from Phase 1
-(ADR 0006), whose whole point was that narrow is what makes precision
-reproducible. Both are choices for the project's owner to make explicitly, not
-defaults to assume.
+**The first specialist agent has landed**, narrowly: `yugen agent secrets`
+sends string evidence already in a project to a locally-running LLM (Ollama)
+and proposes `contains_hardcoded_secret` / `suspicious_string` claims for
+patterns the deterministic rules would plausibly miss. Its backend is
+local-only by hard requirement, not a default - no cloud vendor is ever
+called - and, like every other agent submission, its output lands as
+`proposed` and needs a human running `yugen review approve` to go further.
+There is no MCP tool for it, on purpose, for now. See
+[ADR 0010](docs/adr/0010-specialist-agents-are-local-and-cli-only.md).
+
+```bash
+$ yugen agent secrets --model llama3.2 --max-claims 5
+[agent secrets] proposed 1 claim(s)
+  considered 42   skipped: existing 6, low-confidence 3, malformed 0
+  these are 'proposed', not 'accepted' - review them with 'yugen review list' and 'yugen review approve'
+```
+
+This is one agent, not "full specialist agents" in the general sense the
+specification meant - other specialist agents, and exposing this one over
+MCP, remain future, separate decisions.
+
+**Broader Accessible Mode** is the one Phase 3 item still not attempted,
+deliberately: it means loosening the deliberately narrow, measured question
+set from Phase 1 (ADR 0006), whose whole point was that narrow is what makes
+precision reproducible. That is a choice for the project's owner to make
+explicitly, not a default to assume.
 
 ## What works today
 
@@ -252,7 +270,8 @@ defaults to assume.
 | **P2** campaign/fleet correlation across projects | working, tested |
 | **P3** human approval workflow (CLI-only approve/reject) | working, tested |
 | **P3** approve/reject as MCP tools | **never** - see ADR 0009 |
-| **P3** full specialist agents (LLM-driven) | not started - needs an explicit decision |
+| **P3** secrets/indicators triage agent (local LLM, CLI-only) | working, tested - see ADR 0010 |
+| **P3** other specialist agents / exposing this one over MCP | not started - future, separate decisions |
 | **P3** broader Accessible Mode | not started - needs an explicit decision |
 
 The two "not yet run" rows are stated plainly because they matter. The
@@ -299,7 +318,7 @@ yugen doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 350 tests
+python -m pytest              # 368 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -577,6 +596,7 @@ negative controls in the test suite — a harness that cannot fail proves nothin
 ```
 yugen/
   canonical.py       deterministic serialization, hashing, id minting
+  agents/            specialist agents: local-only LLM backend, secrets triage
   evidence/          artifact kinds, claim predicates, and their invariants
   project/           SQLite schema, migrations, and the only sanctioned store
   adapters/
@@ -594,7 +614,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               350 tests
+tests/               368 tests
 ```
 
 ## Documentation

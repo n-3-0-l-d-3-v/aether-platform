@@ -1059,6 +1059,58 @@ def cmd_review(args: argparse.Namespace) -> int:
         project.close()
 
 
+def cmd_agent_secrets(args: argparse.Namespace) -> int:
+    """Run the local-only secrets/indicators triage agent.
+
+    Supplements the deterministic triage rules with an LLM's judgment over
+    the same string evidence. Every proposal lands as a `proposed` claim,
+    subject to the same human-review gate as any other agent submission -
+    'yugen agent secrets' never accepts anything itself. See
+    docs/adr/0010-specialist-agents-are-local-and-cli-only.md.
+    """
+    from yugen.agents.backend import OllamaBackend, probe as probe_backend
+    from yugen.agents.secrets import run_secrets_triage
+
+    backend = OllamaBackend(args.model, host=args.host)
+    availability = probe_backend(backend)
+    if not availability.available:
+        message = f"agent secrets: {availability.detail}"
+        if availability.remedy:
+            message += f"\n  {availability.remedy}"
+        raise YugenError(message)
+
+    project = _open_project(args)
+    try:
+        object_id = _resolve_object_id(project, args.object) if args.object else None
+        result = run_secrets_triage(
+            project,
+            backend,
+            object_id=object_id,
+            max_claims=args.max_claims,
+            min_confidence=args.min_confidence,
+            batch_size=args.batch_size,
+        )
+        _emit(result.to_record(), args.json, _render_agent_secrets)
+        return 0
+    finally:
+        project.close()
+
+
+def _render_agent_secrets(record: dict[str, Any]) -> None:
+    print(f"[agent secrets] proposed {record['proposed']} claim(s)")
+    print(
+        f"  considered {record['considered']}   "
+        f"skipped: existing {record['skipped_existing']}, "
+        f"low-confidence {record['skipped_low_confidence']}, "
+        f"malformed {record['skipped_malformed']}"
+    )
+    if record["proposed"]:
+        print(
+            "  these are 'proposed', not 'accepted' - review them with "
+            "'yugen review list' and 'yugen review approve'"
+        )
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from yugen.mcp.server import serve_project
 
@@ -1476,6 +1528,44 @@ def build_parser() -> argparse.ArgumentParser:
 
     for sub in (r_list, r_approve, r_reject):
         sub.set_defaults(func=cmd_review)
+
+    p_agent = subparsers.add_parser(
+        "agent",
+        help="Run a specialist agent (local-only LLM reasoning over evidence).",
+        description=(
+            "Every specialist agent here is local-only and CLI-only: it "
+            "never calls a cloud API, and its output always lands as "
+            "'proposed' claims subject to 'yugen review' - never accepted "
+            "directly. See docs/adr/0010-specialist-agents-are-local-and-cli-only.md."
+        ),
+    )
+    agent_subs = p_agent.add_subparsers(dest="agent_action", required=True)
+
+    a_secrets = agent_subs.add_parser(
+        "secrets",
+        help="Triage string evidence for secrets/indicators a fixed pattern would miss.",
+        description=(
+            "Sends already-extracted string text to a locally-running Ollama "
+            "model and proposes contains_hardcoded_secret / suspicious_string "
+            "claims for what it flags. Only a local backend is supported here "
+            "- there is no cloud option, by hard requirement, not default. "
+            "Every proposal lands as 'proposed'; nothing is ever accepted "
+            "automatically."
+        ),
+    )
+    a_secrets.add_argument("--object", help="Limit to one file already in the project.")
+    a_secrets.add_argument(
+        "--model", required=True, help="Ollama model to use, e.g. llama3.2. Must already be pulled."
+    )
+    a_secrets.add_argument(
+        "--host", default="http://localhost:11434", help="Ollama server URL."
+    )
+    a_secrets.add_argument("--max-claims", type=int, default=10, dest="max_claims")
+    a_secrets.add_argument(
+        "--min-confidence", type=float, default=0.5, dest="min_confidence"
+    )
+    a_secrets.add_argument("--batch-size", type=int, default=20, dest="batch_size")
+    a_secrets.set_defaults(func=cmd_agent_secrets)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(

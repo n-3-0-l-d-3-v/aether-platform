@@ -467,14 +467,25 @@ the first two, narrowly; Phase 2 lifted cartography, narrowly, across all four
 of its named items; Phase 3 lifted the approval-workflow half of "richer
 agents," narrowly, deliberately excluding agents from the write side of it.
 
+**The first specialist agent (Phase 3, first slice).** `yugen/agents/` adds
+one narrowly-scoped agent: a secrets/indicators triage agent that sends
+already-extracted string evidence to a locally-running LLM (Ollama, via
+`yugen/agents/backend.py`) and proposes `contains_hardcoded_secret` /
+`suspicious_string` claims for patterns the deterministic rules in
+`yugen/adapters/triage/detectors.py` would plausibly miss. No new predicate,
+no new artifact kind, and no new MCP tool. Its backend is local-only by hard
+requirement rather than a default, and every claim it proposes lands
+`status="proposed"` through the same review gate ADR 0009 built - `yugen
+agent secrets` never accepts anything itself. See
+[ADR 0010](adr/0010-specialist-agents-are-local-and-cli-only.md).
+
+This is one agent, not "full specialist agents" in the general sense the
+original specification language meant - a component-identification agent, a
+hardening-review agent, exposing this capability over MCP, and so on all
+remain unbuilt, deliberately.
+
 Still explicitly not started, and not silently assumed:
 
-- **Full specialist agents** - autonomous, LLM-driven reasoning over evidence.
-  This directly meets Yugen's own "local-first, no cloud analysis of user
-  samples by default" principle head-on: building it means choosing an LLM
-  vendor, accepting network calls and their cost, and deciding safety bounds
-  for autonomous claim submission. Those are decisions for the project's
-  owner, not defaults to assume.
 - **Broader natural language.** Five question types is the specification's
   number, and a test pins the ceiling. Loosening it trades away the property
   ADR 0006 built the interface around - that a narrow, deterministic set is
