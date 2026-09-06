@@ -876,6 +876,58 @@ def cmd_diff_versions(args: argparse.Namespace) -> int:
         target.close()
 
 
+def cmd_diff_graph(args: argparse.Namespace) -> int:
+    """Compare two projects or exports by content-addressed id.
+
+    Needs no open --project of its own: both sides are named explicitly,
+    since a graph diff is inherently a comparison between two things, neither
+    of which is "the current project" by default.
+    """
+    from aether.export.diff import load_snapshot, diff_snapshots
+
+    baseline = load_snapshot(args.baseline)
+    target = load_snapshot(args.target)
+    diff = diff_snapshots(baseline, target)
+
+    def render(record: dict[str, Any]) -> None:
+        print(f"comparing {record['baseline']} -> {record['target']}")
+        if record["identical"]:
+            print("identical: no artifacts or claims differ")
+            return
+        summary = record["summary"]
+        print(
+            f"  artifacts: +{summary['artifacts_added']} -{summary['artifacts_removed']}   "
+            f"claims: +{summary['claims_added']} -{summary['claims_removed']}"
+        )
+        if record["added_artifacts_by_kind"]:
+            print("\nadded artifacts")
+            _table(
+                [[k, str(v)] for k, v in record["added_artifacts_by_kind"].items()],
+                ["kind", "count"],
+            )
+        if record["removed_artifacts_by_kind"]:
+            print("\nremoved artifacts")
+            _table(
+                [[k, str(v)] for k, v in record["removed_artifacts_by_kind"].items()],
+                ["kind", "count"],
+            )
+        if record["added_claims_by_predicate"]:
+            print("\nadded claims")
+            _table(
+                [[k, str(v)] for k, v in record["added_claims_by_predicate"].items()],
+                ["predicate", "count"],
+            )
+        if record["removed_claims_by_predicate"]:
+            print("\nremoved claims")
+            _table(
+                [[k, str(v)] for k, v in record["removed_claims_by_predicate"].items()],
+                ["predicate", "count"],
+            )
+
+    _emit(diff.to_record(), args.json, render)
+    return 0
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -1214,6 +1266,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_diff.add_argument("--label", help="Name for the baseline, used in provenance.")
     p_diff.set_defaults(func=cmd_diff_versions)
+
+    p_diff_graph = subparsers.add_parser(
+        "diff-graph",
+        help="Compare two projects or exports by content-addressed id.",
+        description=(
+            "Because artifact and claim ids are content-addressed, this is a "
+            "set difference over ids, not a heuristic structural comparison: "
+            "an id present in both sides is, by construction, the same thing."
+        ),
+    )
+    p_diff_graph.add_argument("baseline", help="Project directory or export directory.")
+    p_diff_graph.add_argument("target", help="Project directory or export directory.")
+    p_diff_graph.set_defaults(func=cmd_diff_graph)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(

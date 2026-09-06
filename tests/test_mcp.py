@@ -15,6 +15,7 @@ import pytest
 from aether.adapters.triage import TriageAdapter
 from aether.mcp import tools
 from aether.mcp.server import PROTOCOL_VERSION, MCPServer
+from aether.project import Project
 
 
 @pytest.fixture()
@@ -370,3 +371,43 @@ def test_aether_map_is_hidden_and_refused_read_only(project):
     result = call(readonly, "aether_map")
     assert result["isError"] is True
     assert "read-only" in result["content"][0]["text"]
+
+
+def test_aether_diff_graph_compares_against_a_baseline_on_disk(project, tmp_path):
+    baseline_dir = str(tmp_path / "baseline")
+    baseline = Project.create(baseline_dir, "baseline")
+    with baseline.run(tool="t", tool_version="1", adapter="test") as rc:
+        rc.artifact(
+            "file", {"path": "bin/app", "sha256": "a" * 64, "size": 1, "format": "elf", "source": "ingest"}
+        )
+    baseline.close()
+
+    with project.run(tool="t", tool_version="1", adapter="test") as rc:
+        obj = rc.artifact(
+            "file", {"path": "bin/app", "sha256": "a" * 64, "size": 1, "format": "elf", "source": "ingest"}
+        )
+        rc.artifact("string", {"text": "new here", "encoding": "ascii", "addr": 0x1000}, object_id=obj.artifact_id)
+
+    server = MCPServer(project)
+    result = call(server, "aether_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
+    assert result["summary"]["artifacts_added"] == 1
+    assert not result["identical"]
+
+
+def test_aether_diff_graph_reports_identical_when_nothing_changed(project, tmp_path):
+    baseline_dir = str(tmp_path / "baseline")
+    baseline = Project.create(baseline_dir, "baseline")
+    with baseline.run(tool="t", tool_version="1", adapter="test") as rc:
+        rc.artifact(
+            "file", {"path": "bin/app", "sha256": "b" * 64, "size": 1, "format": "elf", "source": "ingest"}
+        )
+    baseline.close()
+
+    with project.run(tool="t", tool_version="1", adapter="test") as rc:
+        rc.artifact(
+            "file", {"path": "bin/app", "sha256": "b" * 64, "size": 1, "format": "elf", "source": "ingest"}
+        )
+
+    server = MCPServer(project)
+    result = call(server, "aether_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
+    assert result["identical"] is True

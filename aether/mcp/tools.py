@@ -403,6 +403,14 @@ def _ask(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     return answer.to_record()
 
 
+def _diff_graph(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    from aether.export.diff import diff_snapshots, load_snapshot, snapshot_from_project
+
+    baseline = load_snapshot(str(args["baseline_path"]))
+    target = snapshot_from_project(project, label="this project")
+    return diff_snapshots(baseline, target).to_record()
+
+
 def _map(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     from aether.cartography import dependency_graph, link_imports
 
@@ -764,6 +772,31 @@ _register(
             ["question"],
         ),
         _ask,
+    )
+)
+
+_register(
+    Tool(
+        "aether_diff_graph",
+        "Compare this project's evidence graph against a baseline project or "
+        "export directory on disk, by content-addressed id. Because ids "
+        "encode identity, this is a set difference, not a heuristic "
+        "comparison: an id present on both sides is, by construction, the "
+        "same artifact or claim. Useful for 'what changed since the last "
+        "analysis' or 'what does this firmware have that the previous "
+        "version did not'.",
+        _schema(
+            {
+                "baseline_path": {
+                    "type": "string",
+                    "description": "Filesystem path to a baseline project "
+                    "directory or export directory. Required - there is no "
+                    "meaningful default baseline.",
+                }
+            },
+            ["baseline_path"],
+        ),
+        _diff_graph,
     )
 )
 
