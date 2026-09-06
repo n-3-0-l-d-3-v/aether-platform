@@ -654,6 +654,48 @@ CLAIM_PREDICATES: dict[str, ClaimPredicate] = {
             ],
         ),
         _pred(
+            "imports_resolved_by",
+            "An import in the subject file is satisfied by an export of another "
+            "file in the same project - the mechanical basis of an inter-binary "
+            "call graph. Says nothing about whether the dependency is actually "
+            "loaded at runtime, only that the symbol names line up.",
+            Field("symbol", "str", required=True),
+            Field(
+                "provider_path",
+                "str",
+                required=True,
+                doc="Logical path of the file that exports the symbol.",
+            ),
+            requires=[
+                EvidenceRequirement(
+                    "locus", ("import",), 1, "The importing file's own import."
+                ),
+                EvidenceRequirement(
+                    "support",
+                    ("export", "symbol"),
+                    1,
+                    "The other file's matching export.",
+                ),
+            ],
+        ),
+        _pred(
+            "component_version_changed",
+            "The same component appears at different versions across two "
+            "projects being compared. A version-tracking claim, not a "
+            "vulnerability claim: it says nothing about which version is safer.",
+            Field("component", "str", required=True),
+            Field("from_version", "str"),
+            Field("to_version", "str"),
+            requires=[
+                EvidenceRequirement(
+                    "locus",
+                    ("string", "symbol", "file", "import"),
+                    1,
+                    "The evidence for the version in the subject (newer) project.",
+                )
+            ],
+        ),
+        _pred(
             "binary_hardening",
             "Presence or absence of an exploit-mitigation feature.",
             Field(

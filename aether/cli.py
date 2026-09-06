@@ -788,6 +788,94 @@ def _render_trace(record: dict[str, Any]) -> None:
     )
 
 
+def cmd_map(args: argparse.Namespace) -> int:
+    """Resolve cross-binary import/export links within one project."""
+    from aether.cartography import dependency_graph, link_imports
+
+    project = _open_project(args)
+    try:
+        result = link_imports(
+            project,
+            ignore_ubiquitous=not args.include_ubiquitous,
+            min_confidence=args.min_confidence,
+        )
+
+        def render(record: dict[str, Any]) -> None:
+            print(f"[cartography] run {record['run_id']}")
+            print(
+                f"  {record['files_considered']} file(s) considered, "
+                f"{record['links_found']} link(s) found"
+            )
+            for warning in record["warnings"]:
+                print(f"  ! {warning}")
+            if record["links_found"]:
+                graph = dependency_graph(project)
+                print()
+                _table(
+                    [[e["consumer"], e["symbol"], e["provider"], e["confidence"]] for e in graph["edges"]],
+                    ["consumer", "symbol", "provider", "conf"],
+                )
+
+        _emit(result.to_record(), args.json, render)
+        return 0
+    finally:
+        project.close()
+
+
+def cmd_diff_versions(args: argparse.Namespace) -> int:
+    """Compare embedded component versions against another project."""
+    from aether.cartography.diff import diff_components, record_version_changes
+
+    target = _open_project(args)
+    try:
+        baseline = Project.open(args.baseline, read_only=True)
+        try:
+            changes = diff_components(baseline, target)
+        finally:
+            baseline.close()
+
+        recorded: dict[str, Any] = {}
+        if changes and args.record:
+            recorded = record_version_changes(
+                target, changes, baseline_label=args.label or args.baseline
+            )
+
+        payload = {
+            "baseline": args.baseline,
+            "changes": [c.to_record() for c in changes],
+            "recorded": recorded,
+        }
+
+        def render(record: dict[str, Any]) -> None:
+            if not record["changes"]:
+                print("no component differences found")
+                return
+            _table(
+                [
+                    [
+                        c["kind"],
+                        c["component"],
+                        c["from_version"] or "-",
+                        c["to_version"] or "-",
+                    ]
+                    for c in record["changes"]
+                ],
+                ["kind", "component", "from", "to"],
+            )
+            if record["recorded"]:
+                print(
+                    f"\nrecorded {record['recorded']['claims_written']} "
+                    "component_version_changed claim(s)"
+                )
+                for warning in record["recorded"].get("warnings", []):
+                    print(f"  ! {warning}")
+
+        _emit(payload, args.json, render)
+        return 0
+    finally:
+        target.close()
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -1096,6 +1184,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_import_trace.add_argument("--load-base")
     p_import_trace.add_argument("--label", help="What was run, e.g. the argv used.")
     p_import_trace.set_defaults(func=cmd_import_trace)
+
+    p_map = subparsers.add_parser(
+        "map",
+        help="Resolve cross-binary import/export links within one project.",
+        description=(
+            "A name match, not proof of a live dependency: dynamic linker "
+            "search order, versioned symbols, and preloading are all invisible "
+            "to it. Claims say so."
+        ),
+    )
+    p_map.add_argument(
+        "--include-ubiquitous",
+        action="store_true",
+        help="Also link common libc/CRT symbols (malloc, memcpy, ...).",
+    )
+    p_map.add_argument("--min-confidence", type=float, default=0.6)
+    p_map.set_defaults(func=cmd_map)
+
+    p_diff = subparsers.add_parser(
+        "diff-versions",
+        help="Compare embedded component versions against another project.",
+    )
+    p_diff.add_argument("baseline", help="Path to the project to compare against.")
+    p_diff.add_argument(
+        "--record",
+        action="store_true",
+        help="Write component_version_changed claims into this project.",
+    )
+    p_diff.add_argument("--label", help="Name for the baseline, used in provenance.")
+    p_diff.set_defaults(func=cmd_diff_versions)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(
