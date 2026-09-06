@@ -1000,6 +1000,65 @@ def cmd_campaign(args: argparse.Namespace) -> int:
             opened_project.close()
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """List, approve, or reject agent-submitted claims awaiting a human.
+
+    Approval and rejection are CLI-only, on purpose: they are not exposed as
+    MCP tools, so an agent can see the queue (via aether_review_queue) but can
+    never mark its own or another agent's proposal as accepted. Only a human
+    running this command decides.
+    """
+    from aether.review import approve, pending, reject
+
+    project = _open_project(args)
+    try:
+        if args.review_action == "list":
+            queue = pending(
+                project,
+                agent_only=not args.all,
+                predicate=args.predicate,
+                min_confidence=args.min_confidence,
+                limit=args.limit,
+            )
+            payload = [c.to_record() for c in queue]
+
+            def render(rows: list[dict[str, Any]]) -> None:
+                if not rows:
+                    print("nothing awaiting review")
+                    return
+                _table(
+                    [
+                        [
+                            r["claim_id"][:16],
+                            r["predicate"][:26],
+                            f"{r['confidence']:.2f}",
+                            ",".join(r["producers"]),
+                            str(r["subject_path"] or "-")[:30],
+                            json.dumps(r["statement"], sort_keys=True)[:50],
+                        ]
+                        for r in rows
+                    ],
+                    ["id", "predicate", "conf", "producers", "subject", "statement"],
+                )
+
+            _emit(payload, args.json, render)
+            return 0
+
+        if not args.claim_id:
+            raise AetherError("review approve/reject needs a claim id")
+        reviewer = args.reviewer or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+        action = approve if args.review_action == "approve" else reject
+        decision = action(project, args.claim_id, reviewer=reviewer, note=args.note or "")
+        _emit(
+            decision.to_record(),
+            args.json,
+            lambda d: print(f"{d['claim_id']} -> {d['outcome']} by {d['reviewer']}"),
+        )
+        return 0
+    finally:
+        project.close()
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -1386,6 +1445,37 @@ def build_parser() -> argparse.ArgumentParser:
         "when they share no identical file.",
     )
     p_campaign.set_defaults(func=cmd_campaign)
+
+    p_review = subparsers.add_parser(
+        "review",
+        help="Approve or reject agent-submitted claims awaiting a human.",
+        description=(
+            "Approval and rejection happen only here, never over MCP - an "
+            "agent can see the queue but can never accept its own proposal."
+        ),
+    )
+    review_subs = p_review.add_subparsers(dest="review_action", required=True)
+
+    r_list = review_subs.add_parser("list", help="Show claims awaiting review.")
+    r_list.add_argument(
+        "--all", action="store_true", help="Include proposed claims with no agent attestation."
+    )
+    r_list.add_argument("--predicate")
+    r_list.add_argument("--min-confidence", type=float, dest="min_confidence")
+    r_list.add_argument("--limit", type=int, default=100)
+
+    r_approve = review_subs.add_parser("approve", help="Accept a proposed claim.")
+    r_approve.add_argument("claim_id")
+    r_approve.add_argument("--reviewer", help="Defaults to $USER / %USERNAME%.")
+    r_approve.add_argument("--note", help="Recorded as an annotation on the claim.")
+
+    r_reject = review_subs.add_parser("reject", help="Reject a proposed claim.")
+    r_reject.add_argument("claim_id")
+    r_reject.add_argument("--reviewer", help="Defaults to $USER / %USERNAME%.")
+    r_reject.add_argument("--note", help="Recorded as an annotation on the claim.")
+
+    for sub in (r_list, r_approve, r_reject):
+        sub.set_defaults(func=cmd_review)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(

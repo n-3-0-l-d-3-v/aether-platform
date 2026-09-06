@@ -411,6 +411,19 @@ def _diff_graph(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     return diff_snapshots(baseline, target).to_record()
 
 
+def _review_queue(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    from aether.review import pending
+
+    queue = pending(
+        project,
+        agent_only=not args.get("all", False),
+        predicate=args.get("predicate"),
+        min_confidence=args.get("min_confidence"),
+        limit=_clamp(args.get("limit", 100), 100),
+    )
+    return {"returned": len(queue), "pending": [c.to_record() for c in queue]}
+
+
 def _campaign(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     from aether.cartography.campaign import correlate_projects
     from aether.project.store import Project as ProjectClass
@@ -877,6 +890,33 @@ _register(
         ),
         _map,
         writes=True,
+    )
+)
+
+_register(
+    Tool(
+        "aether_review_queue",
+        "List claims awaiting human review - by default, proposed claims with "
+        "at least one agent attestation. This is read-only and intentional: "
+        "there is no corresponding approve/reject tool here. Only a human, "
+        "running 'aether review approve/reject' at the CLI, can promote a "
+        "proposed claim - an agent cannot mark its own or another agent's "
+        "proposal as accepted. If you submitted a claim, this tells you "
+        "whether it is still waiting, but you cannot act on that from here.",
+        _schema(
+            {
+                "all": {
+                    "type": "boolean",
+                    "description": "Include proposed claims with no agent "
+                    "attestation (default: agent-submitted only).",
+                    "default": False,
+                },
+                "predicate": {"type": "string"},
+                "min_confidence": {"type": "number"},
+                "limit": {"type": "integer", "default": 100},
+            }
+        ),
+        _review_queue,
     )
 )
 

@@ -13,3 +13,4 @@ where the answer is not obvious from the code.
 | [0006](0006-narrow-nl-without-a-model.md) | The natural-language interface contains no language model |
 | [0007](0007-emulation-is-opt-in.md) | Emulation never runs implicitly |
 | [0008](0008-cartography-scope.md) | Phase 2 lands as four narrow, real capabilities |
+| [0009](0009-approval-is-cli-only.md) | Approval and rejection are never exposed as MCP tools |

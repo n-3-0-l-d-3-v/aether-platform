@@ -22,9 +22,9 @@ already done well; the gap is everything around it.
 
 ---
 
-## Status: Phase 0 released, Phase 1 landed, Phase 2 landed
+## Status: Phase 0 released, Phase 1 and 2 landed, Phase 3 partial
 
-All 25 gate checks pass, 332 tests pass.
+All 25 gate checks pass, 350 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -186,8 +186,37 @@ All four items the specification names under "Firmware Cartography &
 Campaigns" now have a landed, scoped slice - see
 [ADR 0008](docs/adr/0008-cartography-scope.md) for exactly where each line was
 drawn, including an honest limitation the component-fingerprint signal
-surfaced against this repository's own test fixtures. Phase 3 - multi-agent
-orchestration and approval workflows - is deliberately **not** started.
+surfaced against this repository's own test fixtures.
+
+**Phase 3, partially**: the approval-workflow half of "Richer Agents &
+Expansion" is deterministic, local, and fits the existing evidence model
+exactly - a claim's `status` field and the fact that an agent-submitted claim
+already lands as `proposed`. That part is built:
+
+```bash
+$ aether review list
+id                predicate        conf  producers   subject  statement
+----------------  ---------------  ----  ----------  -------  ------------------------
+clm_6baf38592005  contains_string  0.50  agent:demo  bin/app  {"text": "sketchy string"}
+
+$ aether review approve clm_6baf38592005 --reviewer neil --note "reviewed, looks fine"
+clm_6baf38592005... -> accepted by neil
+```
+
+`aether_review_queue` lets an agent see the queue over MCP, but **there is no
+approve or reject MCP tool, and there never will be** - a test enumerates the
+tool registry and asserts no tool name contains "approve" or "reject". An
+agent can see whether its own proposal is still pending; it cannot close the
+loop itself. See [ADR 0009](docs/adr/0009-approval-is-cli-only.md).
+
+**Full specialist agents** and **broader Accessible Mode** are the two Phase 3
+items *not* attempted, and deliberately so rather than silently: the first
+means picking an LLM vendor and accepting cloud calls, which conflicts with
+Aether's own "local-first, no cloud analysis by default" principle; the second
+means loosening the deliberately narrow, measured question set from Phase 1
+(ADR 0006), whose whole point was that narrow is what makes precision
+reproducible. Both are choices for the project's owner to make explicitly, not
+defaults to assume.
 
 ## What works today
 
@@ -205,7 +234,7 @@ orchestration and approval workflows - is deliberately **not** started.
 | Ghidra headless **runner** | written, **not yet run against a real Ghidra install** |
 | binwalk subprocess path | written, **not yet run against a real binwalk install** |
 | Deterministic Git-friendly export | working, tested |
-| MCP stdio server, 20 tools | working, tested |
+| MCP stdio server, 21 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
 | **P1** narrow NL interface, 5 question types | working, tested |
@@ -217,6 +246,10 @@ orchestration and approval workflows - is deliberately **not** started.
 | **P2** cross-binary sink reachability | working, tested |
 | **P2** general evidence-graph diff | working, tested |
 | **P2** campaign/fleet correlation across projects | working, tested |
+| **P3** human approval workflow (CLI-only approve/reject) | working, tested |
+| **P3** approve/reject as MCP tools | **never** - see ADR 0009 |
+| **P3** full specialist agents (LLM-driven) | not started - needs an explicit decision |
+| **P3** broader Accessible Mode | not started - needs an explicit decision |
 
 The two "not yet run" rows are stated plainly because they matter. The
 translation layers on both sides are fully tested; what has not executed is the
@@ -262,7 +295,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 332 tests
+python -m pytest              # 350 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -498,7 +531,7 @@ aether mcp              # stdio JSON-RPC
 aether mcp --read-only  # hide and refuse every write tool
 ```
 
-Twenty tools: inventory, artifact and claim queries, string search,
+Twenty-one tools: inventory, artifact and claim queries, string search,
 decompilation retrieval, graph traversal, schema discovery, provenance,
 `aether_ask` for the question interface, plus `aether_submit_claim` and
 `aether_annotate` for writes. Agent-submitted claims go through exactly the
@@ -547,16 +580,17 @@ aether/
     ghidra/          headless runner, export script, importer
     binwalk/         firmware unpacking with a standard-library fallback
     qemu/            user-mode reachability tracing and trace parsing
-  cartography/       cross-binary linking and version diffing
-  export/            deterministic JSONL export
+  cartography/       cross-binary linking, reachability, diffing, campaigns
+  export/            deterministic JSONL export, general graph diff
   mcp/               stdio MCP server and its tool surface
   nl/                the narrow question interface and its answer model
+  review/            human approval workflow over agent-submitted claims
   eval/              evaluation harness
 cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               332 tests
+tests/               350 tests
 ```
 
 ## Documentation
@@ -573,6 +607,7 @@ tests/               332 tests
   - [0006](docs/adr/0006-narrow-nl-without-a-model.md) The NL interface contains no language model
   - [0007](docs/adr/0007-emulation-is-opt-in.md) Emulation never runs implicitly
   - [0008](docs/adr/0008-cartography-scope.md) Phase 2 lands as four narrow, real capabilities
+  - [0009](docs/adr/0009-approval-is-cli-only.md) Approval and rejection are never exposed as MCP tools
 
 ## A note on the sample data
 

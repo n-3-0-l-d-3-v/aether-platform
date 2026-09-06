@@ -378,11 +378,12 @@ nothing.
 
 ## Cartography (Phase 2)
 
-Phase 2 of the specification - "Firmware Cartography & Campaigns" - is large:
-inter-binary maps, sink reachability across files, version tracking, and
-diffing. `aether/cartography/` lands two narrow, real slices of it rather than
-the whole surface; [ADR 0008](adr/0008-cartography-scope.md) is the scoping
-decision and covers the parts deliberately left for later.
+Phase 2 of the specification - "Firmware Cartography & Campaigns" - names four
+things: inter-binary maps, sink reachability across files, version tracking,
+and diffing. `aether/cartography/` and `aether/export/diff.py` land a narrow,
+real slice of each; [ADR 0008](adr/0008-cartography-scope.md) is the scoping
+decision, revised twice the same day as three of the four items moved from
+"deferred" to "done."
 
 **Cross-binary linking** (`link_imports`) resolves each file's imports against
 every other file's exports in the same project, by symbol name. That is the
@@ -405,30 +406,83 @@ default, so a wrong join costs a wrong answer rather than a corrupted graph;
 `record_version_changes` optionally writes a `component_version_changed` claim
 into the newer project only, backed by evidence that already exists there.
 
-Not attempted: cross-binary sink reachability (which would traverse
-`imports_resolved_by` edges from a QEMU-observed `function_reached` claim in
-one binary into another's risky-API usage), full campaign/fleet tracking across
-many images, and a general evidence-graph diff beyond components.
+**Cross-binary sink reachability** (`aether/cartography/reachability.py`)
+chains three claims that already independently exist rather than observing
+anything new: a function seen executing under QEMU (`function_reached`), a
+call from it into an import (a Ghidra `xref`), and that import resolved to
+another file's export (`imports_resolved_by`). The result,
+`cross_binary_reachable`, is scoped precisely: it says a *specific, observed*
+code path reaches the boundary of another binary at a named symbol, not that
+the other binary's own implementation was itself seen running. Its confidence
+is the *minimum* of the two chained claims, not their product - deliberately
+not the noisy-OR combination ADR 0003 uses for independent corroboration,
+because this is one reasoning chain where each half is necessary, not two
+observations of the same fact.
+
+**A general evidence-graph diff** (`aether/export/diff.py`) turned out to be
+nearly free given content-addressed ids (ADR 0002): comparing two graphs is a
+set difference over ids, because an id present on both sides is, by
+construction, the same artifact or claim. It compares a live project against
+another, an export against another export, or a project against its own
+export - the last of which is asserted identical in a test.
+
+**Campaign/fleet correlation** (`aether/cartography/campaign.py`) is the one
+item that groups *projects*, not artifacts within one project. Two signals: an
+identical file (matching SHA-256) is conclusive; a threshold number of shared
+component-version pairs is a weaker but real signal, gated so one common
+library shared by coincidence is never mistaken for a lineage. Grouping is
+transitive via union-find. Testing this against the repository's own fixtures
+surfaced an honest limitation worth stating rather than hiding: two unrelated
+sample binaries correlate via the component-fingerprint signal because both
+embed the same placeholder version banners used across the evaluation suite.
+The threshold reduces this false-positive mode; it does not eliminate it.
+
+Not attempted: fuzzy vendor/product-name matching, semantic version-range
+reasoning, or any correlation signal beyond what two projects' own evidence
+graphs directly show.
+
+## The approval workflow (Phase 3, partial)
+
+`aether/review/` is the deterministic half of Phase 3's "Richer Agents &
+Expansion." The evidence model already carried what it needed - a claim's
+`status` field, and the fact that an MCP-submitted claim already lands as
+`proposed` with `producer_kind="agent"` (Phase 0). What was missing was a
+queue and a recorded human decision.
+
+`pending()` lists proposed claims with an agent attestation; `approve()` /
+`reject()` promote or reject one and leave an annotation recording who decided
+and why. The property that matters is what is *not* built: there is no
+approve or reject MCP tool, and per [ADR 0009](adr/0009-approval-is-cli-only.md)
+there never will be. `aether_review_queue` lets an agent see whether its own
+proposal is still pending; only a human running `aether review approve` at a
+terminal can close the loop. A test enumerates the MCP tool registry and
+asserts no tool name contains "approve" or "reject," so an agent cannot mark
+its own homework even if a future change tried to add that convenience.
 
 ## Deliberate non-goals
 
 Phase 0 shipped with no natural-language interface, no dynamic analysis, no
 multi-agent orchestration, no cartography, no GUI, and no cloud. Phase 1 lifted
-the first two, narrowly and on the terms above; Phase 2 lifted cartography,
-narrowly, on the terms just described.
+the first two, narrowly; Phase 2 lifted cartography, narrowly, across all four
+of its named items; Phase 3 lifted the approval-workflow half of "richer
+agents," narrowly, deliberately excluding agents from the write side of it.
 
-Still explicitly not started:
+Still explicitly not started, and not silently assumed:
 
-- **Cross-binary sink reachability and campaign/fleet tracking** (rest of
-  Phase 2). See [ADR 0008](adr/0008-cartography-scope.md).
-- **Multi-agent orchestration and approval workflows** (Phase 3). The evidence
-  model already carries what these will need - agent-produced claims land as
-  `proposed`, attributed to the agent - but nothing orchestrates them.
+- **Full specialist agents** - autonomous, LLM-driven reasoning over evidence.
+  This directly meets Aether's own "local-first, no cloud analysis of user
+  samples by default" principle head-on: building it means choosing an LLM
+  vendor, accepting network calls and their cost, and deciding safety bounds
+  for autonomous claim submission. Those are decisions for the project's
+  owner, not defaults to assume.
 - **Broader natural language.** Five question types is the specification's
-  number, and a test pins the ceiling. The question vocabulary treats diffing
-  as out of scope on purpose, so "diff this against the previous version" is
-  declined rather than answered as an SBOM request.
+  number, and a test pins the ceiling. Loosening it trades away the property
+  ADR 0006 built the interface around - that a narrow, deterministic set is
+  measurable, where a broader one would not be. The question vocabulary also
+  treats diffing as out of scope on purpose, so "diff this against the
+  previous version" is declined rather than answered as an SBOM request.
 - **A new disassembler or decompiler.** Never.
 
-`python examples/demo_phase0.py` and `python examples/demo_phase1.py` remain
-the gate demonstrations for their phases.
+`python examples/demo_phase0.py`, `python examples/demo_phase1.py`, and
+`python examples/demo_phase2.py` remain the gate demonstrations for their
+phases.
