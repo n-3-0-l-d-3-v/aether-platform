@@ -47,7 +47,7 @@ can recompute. The docstring says so plainly rather than leaving it implicit.
 
 ## Consequences
 
-- Corroboration is first-class. `aether query claims` shows a producer count,
+- Corroboration is first-class. `yugen query claims` shows a producer count,
   and evaluation suites can require `min_producers: 2`.
 - Curation status (`proposed`/`accepted`/`rejected`) sits on the claim, because
   it is a project-level decision about the assertion, not about one attestation.

@@ -3,7 +3,7 @@
 # subsequent Linux diff is the whole file.
 * text=auto eol=lf
 
-# AetherExport.py runs inside Ghidra's Jython interpreter; keep it LF so it is
+# YugenExport.py runs inside Ghidra's Jython interpreter; keep it LF so it is
 # byte-identical wherever it is copied to.
 *.py text eol=lf
 *.md text eol=lf

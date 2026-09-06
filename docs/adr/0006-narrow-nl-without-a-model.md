@@ -29,7 +29,7 @@ wrong one here.
 **"Never let an agent emit free-text security claims."** A model asked to
 summarise findings will produce fluent prose whose relationship to the evidence
 is unverifiable sentence by sentence. The structure that survives is the answer
-model in `aether/nl/model.py`: every explanatory line carries the claim ids it
+model in `yugen/nl/model.py`: every explanatory line carries the claim ids it
 rests on, `validate_answer` rejects any line that cites none, and a test asserts
 the property holds across every question type. That constraint is satisfiable by
 templates. It is not satisfiable by generated prose without a verification step
@@ -75,5 +75,5 @@ becomes the benchmark for whether it actually helps.
 
 What would not be acceptable is a model generating the answer text. The citation
 invariant is the thing that makes this layer trustworthy, and prose that cites
-evidence it did not consult is precisely the failure mode Aether exists to
+evidence it did not consult is precisely the failure mode Yugen exists to
 prevent.

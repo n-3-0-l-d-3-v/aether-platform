@@ -32,7 +32,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from aether.adapters.triage import formats  # noqa: E402
+from yugen.adapters.triage import formats  # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SAMPLE = os.path.join(REPO_ROOT, "examples", "firmware_agent.elf")

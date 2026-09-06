@@ -21,14 +21,14 @@ connections, and delete data exactly as a native process could.
 
 This is widely misunderstood, because "emulator" sounds like isolation and
 because `qemu-system` - full-system emulation - genuinely does isolate. The
-user-mode variant does not, and Aether uses the user-mode variant because
+user-mode variant does not, and Yugen uses the user-mode variant because
 full-system rehosting is explicitly out of Phase 1 scope.
 
 ## Decision
 
 Execution is never implicit.
 
-- `aether analyze` does not invoke the QEMU adapter under any engine selection.
+- `yugen analyze` does not invoke the QEMU adapter under any engine selection.
 - `QemuAdapter.analyze` raises unless the caller passes `allow_execution=True`.
 - The CLI requires `--allow-execution`, and the refusal explains *why* rather
   than naming the missing flag.
@@ -63,7 +63,7 @@ safety feature.
 
 Actual containment would mean a container or VM with no network and no shared
 filesystem. That belongs to whoever operates the tool, and pretending otherwise
-inside Aether would be worse than saying so plainly.
+inside Yugen would be worse than saying so plainly.
 
 ## Consequences
 

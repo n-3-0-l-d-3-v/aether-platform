@@ -11,7 +11,7 @@ SDK (`mcp`) is available and installs cleanly.
 ## Decision
 
 Implement the protocol directly over stdio JSON-RPC 2.0, in
-`aether/mcp/server.py`, with no third-party runtime.
+`yugen/mcp/server.py`, with no third-party runtime.
 
 "Official protocol" is a statement about the wire format, and the wire format is
 what this implements: `initialize` with version negotiation, `tools/list`,
@@ -21,13 +21,13 @@ probe for capabilities do not error.
 
 ## Rationale
 
-The SDK pulls anyio, httpx, starlette, uvicorn, and pydantic-settings. Aether's
+The SDK pulls anyio, httpx, starlette, uvicorn, and pydantic-settings. Yugen's
 core has zero runtime dependencies, and making the MCP server the one component
 that drags in a web stack would undercut that property everywhere it matters —
 including inside constrained analysis environments where installing packages is
 awkward.
 
-Against that: the surface Aether needs is four methods, all stable, and the
+Against that: the surface Yugen needs is four methods, all stable, and the
 framing is newline-delimited JSON. That is a small, well-specified thing to
 implement, and the risk of drift is bounded by how rarely those four methods
 change.
@@ -35,7 +35,7 @@ change.
 Two design choices contain the risk:
 
 - **Transport is isolated from tools.** Every tool, schema, and handler lives in
-  `aether/mcp/tools.py` and knows nothing about JSON-RPC. Swapping in the SDK
+  `yugen/mcp/tools.py` and knows nothing about JSON-RPC. Swapping in the SDK
   later means reimplementing framing and nothing else.
 - **`handle_message` is a pure function** of request to response. The protocol
   is testable in-process, with no subprocess and no event loop, which is why the
@@ -53,7 +53,7 @@ JSON-RPC error code would have looked like a server fault.
 
 ## Consequences
 
-- `pip install aether` brings a working MCP server with nothing else.
+- `pip install yugen` brings a working MCP server with nothing else.
 - Protocol revisions must be tracked by hand. `SUPPORTED_PROTOCOL_VERSIONS`
   makes the accepted set explicit, and an unrecognized version is answered with
   ours rather than refused.
@@ -62,6 +62,6 @@ JSON-RPC error code would have looked like a server fault.
 
 ## Revisit when
 
-MCP adds a capability Aether needs that is genuinely awkward to implement by
+MCP adds a capability Yugen needs that is genuinely awkward to implement by
 hand — sampling, elicitation, or server-initiated notifications — or when the
 tool surface stops being the only thing exposed.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from aether.canonical import (
+from yugen.canonical import (
     CanonicalError,
     bytes_digests,
     canonical_json,
@@ -85,7 +85,7 @@ def test_is_id_rejects_non_ids():
 
 
 def test_file_and_bytes_digests_agree(tmp_path):
-    payload = b"aether evidence graph"
+    payload = b"yugen evidence graph"
     path = tmp_path / "blob.bin"
     path.write_bytes(payload)
     assert file_digests(str(path)) == bytes_digests(payload)

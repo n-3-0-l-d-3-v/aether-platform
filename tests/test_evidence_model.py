@@ -1,6 +1,6 @@
 """The evidence model's invariants.
 
-Aether's first principle is that an agent cannot emit a free-text security
+Yugen's first principle is that an agent cannot emit a free-text security
 claim. These tests are that principle, written down as assertions.
 """
 
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from aether.errors import EvidenceError, SchemaError
-from aether.evidence.models import (
+from yugen.errors import EvidenceError, SchemaError
+from yugen.evidence.models import (
     Artifact,
     Attestation,
     Claim,
@@ -17,7 +17,7 @@ from aether.evidence.models import (
     EvidenceRef,
     combine_confidence,
 )
-from aether.evidence.schemas import (
+from yugen.evidence.schemas import (
     ARTIFACT_KINDS,
     CLAIM_PREDICATES,
     check_evidence_requirements,
@@ -350,7 +350,7 @@ def test_registries_are_fully_describable():
     assert set(described["artifact_kinds"]) == set(ARTIFACT_KINDS)
     assert set(described["claim_predicates"]) == set(CLAIM_PREDICATES)
     for spec in described["claim_predicates"].values():
-        assert spec["schema_id"].startswith("aether.claim.")
+        assert spec["schema_id"].startswith("yugen.claim.")
 
 
 def test_every_predicate_requires_at_least_one_artifact():

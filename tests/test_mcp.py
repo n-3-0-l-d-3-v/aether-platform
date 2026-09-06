@@ -12,10 +12,10 @@ import json
 
 import pytest
 
-from aether.adapters.triage import TriageAdapter
-from aether.mcp import tools
-from aether.mcp.server import PROTOCOL_VERSION, MCPServer
-from aether.project import Project
+from yugen.adapters.triage import TriageAdapter
+from yugen.mcp import tools
+from yugen.mcp.server import PROTOCOL_VERSION, MCPServer
+from yugen.project import Project
 
 
 @pytest.fixture()
@@ -42,8 +42,8 @@ def test_initialize_advertises_tools_and_guidance(server):
     result = request(server, "initialize", {"protocolVersion": PROTOCOL_VERSION})["result"]
     assert result["protocolVersion"] == PROTOCOL_VERSION
     assert result["capabilities"]["tools"] is not None
-    assert result["serverInfo"]["name"] == "aether"
-    assert "aether_submit_claim" in result["instructions"]
+    assert result["serverInfo"]["name"] == "yugen"
+    assert "yugen_submit_claim" in result["instructions"]
 
 
 def test_older_protocol_versions_are_honoured(server):
@@ -119,17 +119,17 @@ def test_malformed_json_does_not_kill_the_transport(project):
 
 
 def test_project_info_reports_engine_availability(server):
-    payload = call(server, "aether_project_info")["structuredContent"]
+    payload = call(server, "yugen_project_info")["structuredContent"]
     assert payload["totals"]["artifacts"] > 0
     assert payload["engines"]["triage"]["available"] is True
     assert "ghidra" in payload["engines"]
 
 
 def test_list_and_get_object(server):
-    listed = call(server, "aether_list_objects")["structuredContent"]
+    listed = call(server, "yugen_list_objects")["structuredContent"]
     assert listed["objects"][0]["format"] == "elf"
 
-    detail = call(server, "aether_get_object", {"object": "firmware_agent"})[
+    detail = call(server, "yugen_get_object", {"object": "firmware_agent"})[
         "structuredContent"
     ]
     assert detail["object"]["kind"] == "file"
@@ -138,7 +138,7 @@ def test_list_and_get_object(server):
 
 
 def test_search_strings_returns_locations(server):
-    payload = call(server, "aether_search_strings", {"query": "AKIA"})["structuredContent"]
+    payload = call(server, "yugen_search_strings", {"query": "AKIA"})["structuredContent"]
     assert payload["matches"]
     match = payload["matches"][0]
     assert match["addr"].startswith("0x")
@@ -146,10 +146,10 @@ def test_search_strings_returns_locations(server):
 
 
 def test_claims_resolve_to_their_evidence(server):
-    found = call(server, "aether_find_claims", {"predicate": "contains_hardcoded_secret"})
+    found = call(server, "yugen_find_claims", {"predicate": "contains_hardcoded_secret"})
     claim_id = found["structuredContent"]["claims"][0]["claim_id"]
 
-    detail = call(server, "aether_get_claim", {"claim_id": claim_id})["structuredContent"]
+    detail = call(server, "yugen_get_claim", {"claim_id": claim_id})["structuredContent"]
     assert detail["evidence"]
     assert detail["evidence"][0]["kind"] == "string"
     assert detail["claim"]["attestations"]
@@ -159,7 +159,7 @@ def test_address_query_finds_the_covering_artifact(server, project):
     section = project.find_artifacts(kind="section", limit=50)[0]
     payload = call(
         server,
-        "aether_find_artifacts",
+        "yugen_find_artifacts",
         {"addr": hex(section.addr_start), "kind": "section"},
     )["structuredContent"]
     assert payload["artifacts"]
@@ -167,7 +167,7 @@ def test_address_query_finds_the_covering_artifact(server, project):
 
 def test_describe_schema_documents_evidence_requirements(server):
     payload = call(
-        server, "aether_describe_schema", {"predicate": "contains_hardcoded_secret"}
+        server, "yugen_describe_schema", {"predicate": "contains_hardcoded_secret"}
     )["structuredContent"]
     assert payload["requires_evidence"][0]["kinds"] == ["string", "byte_span", "file"]
     fields = {f["name"] for f in payload["fields"]}
@@ -175,9 +175,9 @@ def test_describe_schema_documents_evidence_requirements(server):
 
 
 def test_neighbors_walks_from_a_claim(server):
-    found = call(server, "aether_find_claims", {"limit": 1})["structuredContent"]
+    found = call(server, "yugen_find_claims", {"limit": 1})["structuredContent"]
     claim_id = found["claims"][0]["claim_id"]
-    graph = call(server, "aether_neighbors", {"node_id": claim_id, "depth": 2})[
+    graph = call(server, "yugen_neighbors", {"node_id": claim_id, "depth": 2})[
         "structuredContent"
     ]
     assert graph["nodes"]
@@ -185,7 +185,7 @@ def test_neighbors_walks_from_a_claim(server):
 
 
 def test_decompilation_absent_gives_an_actionable_hint(server):
-    payload = call(server, "aether_get_decompilation", {"function": "main"})[
+    payload = call(server, "yugen_get_decompilation", {"function": "main"})[
         "structuredContent"
     ]
     assert payload["returned"] == 0
@@ -193,15 +193,15 @@ def test_decompilation_absent_gives_an_actionable_hint(server):
 
 
 def test_unknown_object_reference_is_a_tool_error_not_a_crash(server):
-    result = call(server, "aether_get_object", {"object": "no-such-file"})
+    result = call(server, "yugen_get_object", {"object": "no-such-file"})
     assert result["isError"] is True
     assert "no file in this project" in result["content"][0]["text"]
 
 
 def test_unknown_tool_lists_the_available_ones(server):
-    result = call(server, "aether_do_my_job")
+    result = call(server, "yugen_do_my_job")
     assert result["isError"] is True
-    assert "aether_find_claims" in result["content"][0]["text"]
+    assert "yugen_find_claims" in result["content"][0]["text"]
 
 
 # -- write tools ------------------------------------------------------------
@@ -211,7 +211,7 @@ def test_an_agent_can_record_a_structured_claim(server, project):
     string = project.find_artifacts(kind="string", limit=1)[0]
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "contains_string",
             "statement": {"text": string.data["text"], "encoding": "ascii"},
@@ -232,7 +232,7 @@ def test_an_agent_cannot_submit_prose(server, project):
     string = project.find_artifacts(kind="string", limit=1)[0]
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "contains_hardcoded_secret",
             "statement": {
@@ -252,7 +252,7 @@ def test_an_agent_cannot_submit_prose(server, project):
 def test_an_agent_cannot_submit_a_claim_without_evidence(server, project):
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "contains_hardcoded_secret",
             "statement": {"secret_kind": "api_token", "detector": "agent:test"},
@@ -267,7 +267,7 @@ def test_an_agent_cannot_submit_a_claim_without_evidence(server, project):
 def test_an_agent_cannot_invent_artifact_ids(server, project):
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "contains_hardcoded_secret",
             "statement": {"secret_kind": "api_token", "detector": "agent:test"},
@@ -283,7 +283,7 @@ def test_an_agent_cannot_cite_the_wrong_kind_of_evidence(server, project):
     section = project.find_artifacts(kind="section", limit=1)[0]
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "contains_hardcoded_secret",
             "statement": {"secret_kind": "api_token", "detector": "agent:test"},
@@ -299,7 +299,7 @@ def test_an_agent_cannot_use_an_unregistered_predicate(server, project):
     string = project.find_artifacts(kind="string", limit=1)[0]
     result = call(
         server,
-        "aether_submit_claim",
+        "yugen_submit_claim",
         {
             "predicate": "is_probably_backdoored",
             "statement": {},
@@ -315,7 +315,7 @@ def test_annotations_are_the_sanctioned_place_for_prose(server, project):
     obj = project.objects()[0]
     result = call(
         server,
-        "aether_annotate",
+        "yugen_annotate",
         {
             "body": "Reviewed manually: the AWS key is a documented AWS example value.",
             "target_kind": "artifact",
@@ -332,16 +332,16 @@ def test_read_only_servers_hide_and_refuse_write_tools(project, elf_sample):
     readonly = MCPServer(project, read_only=True)
 
     names = {t["name"] for t in request(readonly, "tools/list")["result"]["tools"]}
-    assert "aether_submit_claim" not in names
-    assert "aether_find_claims" in names
+    assert "yugen_submit_claim" not in names
+    assert "yugen_find_claims" in names
 
-    result = call(readonly, "aether_submit_claim", {"predicate": "x", "statement": {},
+    result = call(readonly, "yugen_submit_claim", {"predicate": "x", "statement": {},
                                                     "evidence": [{"artifact_id": "a"}]})
     assert result["isError"] is True
     assert "read-only" in result["content"][0]["text"]
 
 
-def test_aether_map_resolves_cross_binary_links(project):
+def test_yugen_map_resolves_cross_binary_links(project):
     with project.run(tool="t", tool_version="1", adapter="test") as rc:
         provider = rc.artifact(
             "file",
@@ -355,25 +355,25 @@ def test_aether_map_resolves_cross_binary_links(project):
         rc.artifact("import", {"name": "EVP_EncryptUpdate"}, object_id=consumer.artifact_id)
 
     server = MCPServer(project)
-    result = call(server, "aether_map")["structuredContent"]
+    result = call(server, "yugen_map")["structuredContent"]
     assert result["links_found"] == 1
     assert result["graph"]["edges"][0]["symbol"] == "EVP_EncryptUpdate"
 
 
-def test_aether_map_is_hidden_and_refused_read_only(project):
+def test_yugen_map_is_hidden_and_refused_read_only(project):
     with project.run(tool="t", tool_version="1", adapter="test") as rc:
         rc.artifact(
             "file", {"path": "bin/app", "sha256": "c" * 64, "size": 1, "format": "elf", "source": "ingest"}
         )
     readonly = MCPServer(project, read_only=True)
     names = {t["name"] for t in request(readonly, "tools/list")["result"]["tools"]}
-    assert "aether_map" not in names
-    result = call(readonly, "aether_map")
+    assert "yugen_map" not in names
+    result = call(readonly, "yugen_map")
     assert result["isError"] is True
     assert "read-only" in result["content"][0]["text"]
 
 
-def test_aether_diff_graph_compares_against_a_baseline_on_disk(project, tmp_path):
+def test_yugen_diff_graph_compares_against_a_baseline_on_disk(project, tmp_path):
     baseline_dir = str(tmp_path / "baseline")
     baseline = Project.create(baseline_dir, "baseline")
     with baseline.run(tool="t", tool_version="1", adapter="test") as rc:
@@ -389,12 +389,12 @@ def test_aether_diff_graph_compares_against_a_baseline_on_disk(project, tmp_path
         rc.artifact("string", {"text": "new here", "encoding": "ascii", "addr": 0x1000}, object_id=obj.artifact_id)
 
     server = MCPServer(project)
-    result = call(server, "aether_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
+    result = call(server, "yugen_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
     assert result["summary"]["artifacts_added"] == 1
     assert not result["identical"]
 
 
-def test_aether_diff_graph_reports_identical_when_nothing_changed(project, tmp_path):
+def test_yugen_diff_graph_reports_identical_when_nothing_changed(project, tmp_path):
     baseline_dir = str(tmp_path / "baseline")
     baseline = Project.create(baseline_dir, "baseline")
     with baseline.run(tool="t", tool_version="1", adapter="test") as rc:
@@ -409,5 +409,5 @@ def test_aether_diff_graph_reports_identical_when_nothing_changed(project, tmp_p
         )
 
     server = MCPServer(project)
-    result = call(server, "aether_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
+    result = call(server, "yugen_diff_graph", {"baseline_path": baseline_dir})["structuredContent"]
     assert result["identical"] is True

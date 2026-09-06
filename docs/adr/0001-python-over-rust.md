@@ -30,7 +30,7 @@ Three supporting reasons:
   Phase 0 payoff.
 - The agent layer is Python from Phase 1. A Rust core means an FFI or IPC
   boundary exactly where the most iteration will happen.
-- Every heavy computation already lives in an external engine. Aether's core is
+- Every heavy computation already lives in an external engine. Yugen's core is
   SQLite queries, JSON, and hashing — none of which are where Rust would earn
   its keep.
 
@@ -47,7 +47,7 @@ checkout.
   hot spots are already identified: signature scanning is one pass per signature
   and wants Aho-Corasick; string extraction is a byte loop.
 - The store API is deliberately narrow, so a port would be bounded by
-  `aether/project/store.py` and `aether/evidence/`.
+  `yugen/project/store.py` and `yugen/evidence/`.
 - Type annotations are used throughout, which keeps a future port honest about
   what the current shapes actually are.
 

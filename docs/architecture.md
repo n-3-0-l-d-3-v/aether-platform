@@ -1,6 +1,6 @@
-# Aether architecture
+# Yugen architecture
 
-This document describes what Aether actually is through Phase 2, and — more
+This document describes what Yugen actually is through Phase 2, and — more
 usefully — why the pieces are shaped the way they are. Individual decisions with real trade-offs
 have their own records in [adr/](adr/).
 
@@ -15,32 +15,32 @@ thing serializes to something a human can diff.
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Interfaces                                                  │
-│  aether CLI            aether mcp (stdio JSON-RPC)           │
+│  yugen CLI            yugen mcp (stdio JSON-RPC)           │
 │  Both are thin front ends over the same library. Neither     │
 │  touches SQLite, and neither contains analysis logic.        │
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
-│  Question interface  (aether/nl/)                Phase 1     │
+│  Question interface  (yugen/nl/)                Phase 1     │
 │  Five question types, classified deterministically. Answers  │
 │  are templates over claims; every line cites claim ids.      │
 │  Reads the graph. Never writes to it.                        │
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
-│  Project store  (aether/project/store.py)                    │
+│  Project store  (yugen/project/store.py)                    │
 │  The only sanctioned way in or out. Writes happen inside a   │
 │  run() block, so provenance cannot be forgotten.             │
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
-│  Evidence model  (aether/evidence/)                          │
+│  Evidence model  (yugen/evidence/)                          │
 │  Artifact kinds and claim predicates, with the identity and  │
 │  evidence rules that make convergence and validation work.   │
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────▼──────────────────────────────────┐
-│  Adapters  (aether/adapters/)                                │
+│  Adapters  (yugen/adapters/)                                │
 │  triage (built in) · ghidra headless · binwalk               │
 │  qemu user-mode (Phase 1, opt-in)                            │
 │  Translation only. No adapter invents analysis.              │
@@ -148,7 +148,7 @@ bypassed.
 | Every artifact has provenance | writes only inside a run | `integrity_problems()` |
 | Confidence within [0,1] | `Attestation.create` | `CHECK` constraint |
 
-`aether check` runs the at-rest checks. An empty result is the invariant
+`yugen check` runs the at-rest checks. An empty result is the invariant
 holding; anything else means a bug, a hand-edited database, or a partial
 import.
 
@@ -186,7 +186,7 @@ buys nothing.
 Two halves, split deliberately:
 
 - **Runner** — locates `analyzeHeadless` via `GHIDRA_INSTALL_DIR`, PATH, or
-  conventional install directories; invokes it with `AetherExport.py`.
+  conventional install directories; invokes it with `YugenExport.py`.
 - **Importer** — reads the export into the graph.
 
 Running needs a JVM, a multi-gigabyte install, and minutes of wall time.
@@ -195,11 +195,11 @@ bugs actually live — is unit-testable against recorded exports on any machine,
 and an export can be handed between machines without handing over the whole
 environment.
 
-`AetherExport.py` runs inside Ghidra's interpreter, which is Jython 2.7 in most
+`YugenExport.py` runs inside Ghidra's interpreter, which is Jython 2.7 in most
 installations and CPython 3 under PyGhidra, so it stays in the subset both
 accept. It writes sorted JSONL. The risky-API list is passed *into* Ghidra so
 the script can rank which functions are worth the decompiler's time — the policy
-stays on Aether's side of the bridge.
+stays on Yugen's side of the bridge.
 
 Ghidra's `uses_risky_api` claims carry call sites resolved from xrefs, and are
 linked as `refines` to the coarser import-only claim triage produced. Both stay:
@@ -208,7 +208,7 @@ the coarse one holds even when disassembly fails.
 ### binwalk
 
 Prefers binwalk when installed, because binwalk knows about squashfs, jffs2,
-ubifs, and a hundred vendor formats Aether has no business reimplementing.
+ubifs, and a hundred vendor formats Yugen has no business reimplementing.
 
 Falls back to a built-in carver otherwise. The fallback is scoped to what the
 standard library can already decode — gzip, bzip2, xz, zip, tar — plus cpio,
@@ -248,7 +248,7 @@ points, and returns nothing when the alignment is unconvincing. An unaligned
 trace therefore produces no reachability claims rather than wrong ones.
 
 Execution never happens implicitly. `qemu-user` is an emulator, not a sandbox -
-its system calls reach the host kernel - so `aether analyze` will not invoke it
+its system calls reach the host kernel - so `yugen analyze` will not invoke it
 and the CLI requires `--allow-execution`. See
 [ADR 0007](adr/0007-emulation-is-opt-in.md).
 
@@ -272,7 +272,7 @@ makes precision reproducible.
 ### The citation invariant
 
 The specification permits free text in exactly one place - "explanations that
-reference Claim IDs" - and `aether/nl/model.py` makes that the only
+reference Claim IDs" - and `yugen/nl/model.py` makes that the only
 representable shape. An `Answer` is a list of `AnswerLine`, and every line
 either cites at least one claim id or is explicitly marked as a caveat.
 `validate_answer` runs on every answer before it leaves the package, and a test
@@ -329,7 +329,7 @@ than three thousand changed timestamps.
 ## MCP
 
 A dependency-free stdio JSON-RPC server. Rationale in
-[0004](adr/0004-mcp-without-sdk.md): the protocol surface Aether needs is small
+[0004](adr/0004-mcp-without-sdk.md): the protocol surface Yugen needs is small
 and stable, and making the MCP server the one component that drags in an async
 framework would undercut the local-first, zero-dependency property the rest of
 the system has.
@@ -346,7 +346,7 @@ always go deeper — claim to evidence, evidence to containing object, object to
 the rest of the image — without guessing or re-querying by name.
 
 **Writing is possible but constrained.** An agent that cannot record what it
-concluded is not much use. `aether_submit_claim` goes through exactly the same
+concluded is not much use. `yugen_submit_claim` goes through exactly the same
 validation an adapter does, and agent claims land as `proposed`, attributed to
 the agent. Responses are size-bounded: an agent asking for "all strings" in a
 firmware image gets a useful page and a total count, not a context window full
@@ -380,7 +380,7 @@ nothing.
 
 Phase 2 of the specification - "Firmware Cartography & Campaigns" - names four
 things: inter-binary maps, sink reachability across files, version tracking,
-and diffing. `aether/cartography/` and `aether/export/diff.py` land a narrow,
+and diffing. `yugen/cartography/` and `yugen/export/diff.py` land a narrow,
 real slice of each; [ADR 0008](adr/0008-cartography-scope.md) is the scoping
 decision, revised twice the same day as three of the four items moved from
 "deferred" to "done."
@@ -391,14 +391,14 @@ mechanical substance of an inter-binary map: which binary's undefined symbol is
 satisfied by which other binary's definition. It is a join over two
 independent symbol tables, not a direct reading of either file's own
 structure, so the resulting `imports_resolved_by` claims score below what a
-header parse earns elsewhere in Aether - lower still when more than one file
+header parse earns elsewhere in Yugen - lower still when more than one file
 exports the same name, in which case every candidate is recorded rather than
 one being guessed. Common libc/CRT symbols are excluded by default: at
 firmware scale nearly every binary imports them, and including them would
 produce a graph dense with edges that say nothing about this firmware's
 particular structure.
 
-**Version diffing** (`aether/cartography/diff.py`) compares `embeds_component`
+**Version diffing** (`yugen/cartography/diff.py`) compares `embeds_component`
 claims between two independently analysed projects, matched by component name
 since two different builds share no artifact ids - even identical bytes only
 converge *within* one project (ADR 0002). It stays a pure reporting function by
@@ -406,7 +406,7 @@ default, so a wrong join costs a wrong answer rather than a corrupted graph;
 `record_version_changes` optionally writes a `component_version_changed` claim
 into the newer project only, backed by evidence that already exists there.
 
-**Cross-binary sink reachability** (`aether/cartography/reachability.py`)
+**Cross-binary sink reachability** (`yugen/cartography/reachability.py`)
 chains three claims that already independently exist rather than observing
 anything new: a function seen executing under QEMU (`function_reached`), a
 call from it into an import (a Ghidra `xref`), and that import resolved to
@@ -419,14 +419,14 @@ not the noisy-OR combination ADR 0003 uses for independent corroboration,
 because this is one reasoning chain where each half is necessary, not two
 observations of the same fact.
 
-**A general evidence-graph diff** (`aether/export/diff.py`) turned out to be
+**A general evidence-graph diff** (`yugen/export/diff.py`) turned out to be
 nearly free given content-addressed ids (ADR 0002): comparing two graphs is a
 set difference over ids, because an id present on both sides is, by
 construction, the same artifact or claim. It compares a live project against
 another, an export against another export, or a project against its own
 export - the last of which is asserted identical in a test.
 
-**Campaign/fleet correlation** (`aether/cartography/campaign.py`) is the one
+**Campaign/fleet correlation** (`yugen/cartography/campaign.py`) is the one
 item that groups *projects*, not artifacts within one project. Two signals: an
 identical file (matching SHA-256) is conclusive; a threshold number of shared
 component-version pairs is a weaker but real signal, gated so one common
@@ -443,7 +443,7 @@ graphs directly show.
 
 ## The approval workflow (Phase 3, partial)
 
-`aether/review/` is the deterministic half of Phase 3's "Richer Agents &
+`yugen/review/` is the deterministic half of Phase 3's "Richer Agents &
 Expansion." The evidence model already carried what it needed - a claim's
 `status` field, and the fact that an MCP-submitted claim already lands as
 `proposed` with `producer_kind="agent"` (Phase 0). What was missing was a
@@ -453,8 +453,8 @@ queue and a recorded human decision.
 `reject()` promote or reject one and leave an annotation recording who decided
 and why. The property that matters is what is *not* built: there is no
 approve or reject MCP tool, and per [ADR 0009](adr/0009-approval-is-cli-only.md)
-there never will be. `aether_review_queue` lets an agent see whether its own
-proposal is still pending; only a human running `aether review approve` at a
+there never will be. `yugen_review_queue` lets an agent see whether its own
+proposal is still pending; only a human running `yugen review approve` at a
 terminal can close the loop. A test enumerates the MCP tool registry and
 asserts no tool name contains "approve" or "reject," so an agent cannot mark
 its own homework even if a future change tried to add that convenience.
@@ -470,7 +470,7 @@ agents," narrowly, deliberately excluding agents from the write side of it.
 Still explicitly not started, and not silently assumed:
 
 - **Full specialist agents** - autonomous, LLM-driven reasoning over evidence.
-  This directly meets Aether's own "local-first, no cloud analysis of user
+  This directly meets Yugen's own "local-first, no cloud analysis of user
   samples by default" principle head-on: building it means choosing an LLM
   vendor, accepting network calls and their cost, and deciding safety bounds
   for autonomous claim submission. Those are decisions for the project's

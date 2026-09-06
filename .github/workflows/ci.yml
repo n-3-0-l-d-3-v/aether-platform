@@ -31,14 +31,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Aether has no runtime dependencies by design, so only the test runner
+      # Yugen has no runtime dependencies by design, so only the test runner
       # is installed here. If this step ever grows, ADR 0001 needs revisiting.
       - name: Install test runner
         run: python -m pip install --upgrade pip pytest
 
       - name: Verify the package really has no runtime dependencies
         run: |
-          python -c "import sys; sys.path.insert(0, '.'); import aether.cli, aether.mcp.server, aether.eval.harness; print('imports clean')"
+          python -c "import sys; sys.path.insert(0, '.'); import yugen.cli, yugen.mcp.server, yugen.eval.harness; print('imports clean')"
 
       - name: Run tests
         run: python -m pytest -q
@@ -142,12 +142,12 @@ jobs:
       - name: Two independent analyses must produce identical graphs
         run: |
           python examples/src/build_elf_sample.py examples/firmware_agent.elf
-          python cli/aether.py init ./run-a --name determinism
-          python cli/aether.py -P ./run-a analyze examples/firmware_agent.elf --path bin/agent
-          python cli/aether.py -P ./run-a --json export ./out-a > /dev/null
-          python cli/aether.py init ./run-b --name determinism
-          python cli/aether.py -P ./run-b analyze examples/firmware_agent.elf --path bin/agent
-          python cli/aether.py -P ./run-b --json export ./out-b > /dev/null
+          python cli/yugen.py init ./run-a --name determinism
+          python cli/yugen.py -P ./run-a analyze examples/firmware_agent.elf --path bin/agent
+          python cli/yugen.py -P ./run-a --json export ./out-a > /dev/null
+          python cli/yugen.py init ./run-b --name determinism
+          python cli/yugen.py -P ./run-b analyze examples/firmware_agent.elf --path bin/agent
+          python cli/yugen.py -P ./run-b --json export ./out-b > /dev/null
           diff -r ./out-a/graph ./out-b/graph
           echo "graph/ is byte-identical across independent analyses"
 
@@ -160,7 +160,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Sample binaries are generated rather than committed, and `aether eval`
+      # Sample binaries are generated rather than committed, and `yugen eval`
       # deliberately does not build them for you - it points at the generators
       # instead. So build them explicitly here.
       - name: Build the evaluation targets
@@ -169,4 +169,4 @@ jobs:
           python examples/src/build_firmware_sample.py examples/demo_firmware.bin
 
       - name: Score claims against ground truth
-        run: python cli/aether.py eval
+        run: python cli/yugen.py eval

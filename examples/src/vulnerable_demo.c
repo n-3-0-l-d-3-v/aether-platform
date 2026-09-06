@@ -1,4 +1,4 @@
-/* Deliberately unsafe demo target for Aether's evaluation suite.
+/* Deliberately unsafe demo target for Yugen's evaluation suite.
  * Not a real program: it exists so the evaluation harness has a binary whose
  * ground truth (strings, imports, risky APIs) is known exactly. */
 #include <stdio.h>

@@ -45,7 +45,7 @@ unpacked when it was not. Three things prevent that:
 
 - Unpackable-but-not-unpacked formats produce a warning naming the format, the
   offset, and the remedy.
-- `aether doctor` states plainly that without binwalk only the stdlib formats
+- `yugen doctor` states plainly that without binwalk only the stdlib formats
   are extracted.
 - The adapter records which engine ran in provenance, so any inventory can be
   traced to what produced it.
@@ -65,6 +65,6 @@ data.
 - Firmware analysis works out of the box, at reduced depth, and says so.
 - Two extraction paths to maintain. The interface is narrow — both return
   `(hits, entries, notes)` — and the adapter above them is identical either way.
-- Real vendor firmware is overwhelmingly squashfs. Without binwalk, Aether will
+- Real vendor firmware is overwhelmingly squashfs. Without binwalk, Yugen will
   inventory the header and stop. That is the honest outcome, and it is reported
   rather than hidden.

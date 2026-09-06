@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from aether.errors import AetherError
-from aether.evidence.models import EvidenceRef
-from aether.export import export_project
-from aether.export.diff import (
+from yugen.errors import YugenError
+from yugen.evidence.models import EvidenceRef
+from yugen.export import export_project
+from yugen.export.diff import (
     DiffError,
     diff_paths,
     diff_snapshots,
@@ -22,7 +22,7 @@ from aether.export.diff import (
     snapshot_from_export,
     snapshot_from_project,
 )
-from aether.project import Project
+from yugen.project import Project
 
 
 def _seed(project: Project, sha256: str, extra_string: str | None = None) -> None:
@@ -137,14 +137,14 @@ def test_diff_paths_is_a_convenience_wrapper(tmp_path):
 def test_an_unrecognisable_path_is_a_clean_error(tmp_path):
     empty = tmp_path / "nothing"
     empty.mkdir()
-    with pytest.raises(DiffError, match="neither an Aether project"):
+    with pytest.raises(DiffError, match="neither a Yugen project"):
         load_snapshot(str(empty))
 
 
 def test_an_export_directory_missing_the_graph_stream_is_a_clean_error(tmp_path):
     fake_export = tmp_path / "export"
     fake_export.mkdir()
-    with pytest.raises(DiffError, match="does not look like an Aether export"):
+    with pytest.raises(DiffError, match="does not look like a Yugen export"):
         snapshot_from_export(str(fake_export))
 
 
@@ -180,7 +180,7 @@ def test_claim_diff_carries_the_subject_path(tmp_path):
 
 
 def test_cli_diff_graph_reports_identical(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     main(["init", str(tmp_path / "a")])
     main(["init", str(tmp_path / "b")])
@@ -195,7 +195,7 @@ def test_cli_diff_graph_reports_identical(tmp_path, capsys):
 
 
 def test_cli_diff_graph_reports_a_real_difference(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     main(["init", str(tmp_path / "a")])
     main(["init", str(tmp_path / "b")])
@@ -214,7 +214,7 @@ def test_cli_diff_graph_reports_a_real_difference(tmp_path, capsys):
 
 
 def test_cli_diff_graph_can_compare_a_project_to_an_export(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -231,8 +231,8 @@ def test_cli_diff_graph_can_compare_a_project_to_an_export(tmp_path, capsys):
 
 
 def test_cli_diff_graph_on_a_bad_path_is_a_clean_error(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     (tmp_path / "junk").mkdir()
     assert main(["diff-graph", str(tmp_path / "junk"), str(tmp_path / "junk")]) != 0
-    assert "neither an Aether project" in capsys.readouterr().err
+    assert "neither a Yugen project" in capsys.readouterr().err

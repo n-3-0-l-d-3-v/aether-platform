@@ -18,14 +18,14 @@ incomplete ambitious features" and "when in doubt, ask before adding scope."
 Land two pieces, both fully real and fully tested, and say plainly what is not
 attempted.
 
-**Cross-binary import/export linking** (`aether/cartography/link_imports`).
+**Cross-binary import/export linking** (`yugen/cartography/link_imports`).
 For every file in a project, resolve its imports against every other file's
 exports by symbol name. This is the actual substance of "inter-binary maps" -
 which binary's undefined symbol is satisfied by which other binary's
 definition - expressed as a new claim predicate, `imports_resolved_by`, whose
 evidence spans two file objects.
 
-**Version diffing** (`aether/cartography/diff`). Compare `embeds_component`
+**Version diffing** (`yugen/cartography/diff`). Compare `embeds_component`
 claims across two independently analysed projects, matched by component name,
 and optionally record `component_version_changed` claims in the newer project.
 
@@ -54,7 +54,7 @@ name that resolves to different implementations (symbol versioning, `LD_
 PRELOAD`, static linking a private copy of a common library name). The
 predicate's own documentation says the claim proves name agreement, not a live
 dependency, and its confidence is fixed below what a header parse or symbol
-table read earns elsewhere in Aether - lower still when more than one file
+table read earns elsewhere in Yugen - lower still when more than one file
 exports the same name, since guessing which the dynamic linker would actually
 pick is not something a static join can do.
 
@@ -96,7 +96,7 @@ exists to prevent.
 Two of the three items this ADR originally deferred were completed in a
 follow-up change, once the tools to build them honestly already existed.
 
-**Cross-binary sink reachability** (`aether/cartography/reachability.py`)
+**Cross-binary sink reachability** (`yugen/cartography/reachability.py`)
 chains three claims that were already independently true in the graph: a
 function observed executing under QEMU (`function_reached`), a call from that
 function into an import (a Ghidra `xref`), and that import resolved to another
@@ -109,7 +109,7 @@ chain where each half is necessary, not two independent observations
 corroborating the same fact, so noisy-OR (ADR 0003's combination rule for
 independent producers) does not apply here.
 
-**A general evidence-graph diff** (`aether/export/diff.py`) turned out to be
+**A general evidence-graph diff** (`yugen/export/diff.py`) turned out to be
 nearly free given content-addressed ids (ADR 0002): comparing two graphs is a
 set difference over ids, because an id present on both sides is, by
 construction, the same artifact or claim. It compares a live project against
@@ -117,7 +117,7 @@ another live project, an export against another export, or a project against
 its own export - the last of which is asserted to be identical in a test,
 since anything else would mean the export was lossy.
 
-**Campaign/fleet correlation** (`aether/cartography/campaign.py`) groups
+**Campaign/fleet correlation** (`yugen/cartography/campaign.py`) groups
 several *projects* - not artifacts within one project - into campaigns using
 two mechanical signals: an identical file (matching SHA-256) is conclusive; a
 threshold number of shared component-version pairs (default two, configurable)

@@ -6,10 +6,10 @@ import os
 
 import pytest
 
-from aether.adapters.binwalk import BinwalkAdapter, carver
-from aether.adapters.ghidra import GhidraAdapter, importer
-from aether.adapters.triage import TriageAdapter, detectors, formats, strings
-from aether.errors import AdapterError
+from yugen.adapters.binwalk import BinwalkAdapter, carver
+from yugen.adapters.ghidra import GhidraAdapter, importer
+from yugen.adapters.triage import TriageAdapter, detectors, formats, strings
+from yugen.errors import AdapterError
 
 
 # -- format identification --------------------------------------------------
@@ -325,7 +325,7 @@ def test_auto_named_functions_become_artifacts_but_not_claims(project, elf_sampl
              "is_external": False},
         ],
     }
-    from aether.adapters.triage import TriageAdapter
+    from yugen.adapters.triage import TriageAdapter
 
     triaged = TriageAdapter().analyze(project, elf_sample, logical_path="bin/t")
     with project.run(tool="ghidra", tool_version="test", adapter="ghidra") as rc:
@@ -372,7 +372,7 @@ def test_import_warns_when_the_export_describes_other_bytes(project, ghidra_expo
     import json
     import shutil
 
-    from aether.adapters.triage import TriageAdapter
+    from yugen.adapters.triage import TriageAdapter
 
     triaged = TriageAdapter().analyze(project, elf_sample, logical_path="bin/firmware_agent")
     mismatched = os.path.join(project.work_dir, "mismatch")
@@ -391,9 +391,9 @@ def test_import_warns_when_the_export_describes_other_bytes(project, ghidra_expo
 
 
 def test_export_script_is_shipped_with_the_package():
-    from aether.adapters.ghidra import scripts_dir
+    from yugen.adapters.ghidra import scripts_dir
 
-    script = os.path.join(scripts_dir(), "AetherExport.py")
+    script = os.path.join(scripts_dir(), "YugenExport.py")
     assert os.path.isfile(script)
     with open(script, encoding="utf-8") as handle:
         source = handle.read()
@@ -404,7 +404,7 @@ def test_export_script_is_shipped_with_the_package():
 
 def test_headless_invocation_is_well_formed(tmp_path):
     """The one part of the runner testable without a Ghidra install."""
-    from aether.adapters.ghidra import ANALYSIS_TIMEOUT_SECONDS, GHIDRA_PROJECT_NAME
+    from yugen.adapters.ghidra import ANALYSIS_TIMEOUT_SECONDS, GHIDRA_PROJECT_NAME
 
     adapter = GhidraAdapter(headless="/opt/ghidra/support/analyzeHeadless")
     argv = adapter._build_argv(
@@ -418,7 +418,7 @@ def test_headless_invocation_is_well_formed(tmp_path):
     # The script and its three positional arguments must stay adjacent and in
     # order, or Ghidra hands them to the wrong consumer.
     script_index = argv.index("-postScript")
-    assert argv[script_index + 1] == "AetherExport.py"
+    assert argv[script_index + 1] == "YugenExport.py"
     assert argv[script_index + 2].endswith("out")
     assert argv[script_index + 3] == "12"
     assert "strcpy" in argv[script_index + 4]
@@ -504,7 +504,7 @@ def test_suspicious_claims_cite_the_string_they_came_from(project, firmware_samp
 
 def test_suspicious_claims_are_capped_per_category(project, tmp_path):
     """Volume control: a binary full of URLs is still one file worth reviewing."""
-    from aether.adapters.triage import MAX_SUSPICIOUS_PER_CATEGORY, TriageAdapter
+    from yugen.adapters.triage import MAX_SUSPICIOUS_PER_CATEGORY, TriageAdapter
 
     blob = tmp_path / "many_urls.bin"
     body = b"\x00".join(

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from aether.cartography import dependency_graph, link_imports
-from aether.cartography.diff import diff_components, record_version_changes
-from aether.evidence.models import EvidenceRef
-from aether.project import Project
+from yugen.cartography import dependency_graph, link_imports
+from yugen.cartography.diff import diff_components, record_version_changes
+from yugen.evidence.models import EvidenceRef
+from yugen.project import Project
 
 FILE_A = {"path": "bin/app", "sha256": "a" * 64, "size": 1, "format": "elf", "source": "ingest"}
 FILE_B = {"path": "lib/libcrypto.so", "sha256": "b" * 64, "size": 1, "format": "elf", "source": "ingest"}
@@ -140,7 +140,7 @@ def test_re_running_link_imports_converges(project):
 
 
 def test_cli_map_reports_links(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -297,7 +297,7 @@ def test_confidence_is_below_a_direct_component_reading(tmp_path):
 
 
 def test_cli_diff_versions_reports_changes(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     main(["init", str(tmp_path / "a")])
     main(["init", str(tmp_path / "b")])
@@ -319,7 +319,7 @@ def test_cli_diff_versions_reports_changes(tmp_path, capsys):
 
 
 def test_cli_diff_versions_with_no_changes(tmp_path, capsys):
-    from aether.cli import main
+    from yugen.cli import main
 
     main(["init", str(tmp_path / "a")])
     main(["init", str(tmp_path / "b")])
