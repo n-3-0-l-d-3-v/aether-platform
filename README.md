@@ -118,6 +118,26 @@ of a live dependency, and the resulting claims say so at reduced confidence.
 Version diffing compares embedded components across two independently analysed
 projects and can record what changed, evidenced in the newer project.
 
+All 14/14 Phase 2 checks pass:
+
+```bash
+python examples/demo_phase2.py
+```
+
+```
+  [PASS] a matching export resolves the import
+  [PASS] a ubiquitous libc symbol (malloc) is excluded by default
+  [PASS] a name-match join scores below a direct header reading
+  [PASS] re-running linking converges rather than duplicating
+  [PASS] the same linking is available to agents via aether_map
+  [PASS] a version bump between two projects is detected
+  [PASS] the recorded claim cites real evidence, not just text
+  [PASS] the baseline project is never written to
+  [PASS] 'added' components are never written as version-change claims
+  ...
+  14/14 Phase 2 checks passed
+```
+
 Not attempted: cross-binary sink reachability, full campaign/fleet tracking, or
 a general evidence-graph diff. See
 [ADR 0008](docs/adr/0008-cartography-scope.md) for why the scope stopped there.

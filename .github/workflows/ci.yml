@@ -49,6 +49,9 @@ jobs:
       - name: Run the Phase 1 demonstration
         run: python examples/demo_phase1.py
 
+      - name: Run the Phase 2 demonstration
+        run: python examples/demo_phase2.py
+
   docs:
     name: docs consistency
     runs-on: ubuntu-latest
@@ -108,6 +111,16 @@ jobs:
           echo "README claims ${claimed}, demo reports ${actual}"
           if [ "$claimed" != "$actual" ]; then
             echo "::error::README says ${claimed} Phase 1 checks but the demo reports ${actual}"
+            exit 1
+          fi
+
+      - name: README Phase 2 count must match the demonstration
+        run: |
+          actual=$(python examples/demo_phase2.py | grep -oE '[0-9]+/[0-9]+ Phase 2 checks passed' | grep -oE '^[0-9]+')
+          claimed=$(grep -oE '[0-9]+/[0-9]+ Phase 2 checks passed' README.md | grep -oE '^[0-9]+' | head -1)
+          echo "README claims ${claimed}, demo reports ${actual}"
+          if [ "$claimed" != "$actual" ]; then
+            echo "::error::README says ${claimed} Phase 2 checks but the demo reports ${actual}"
             exit 1
           fi
 
