@@ -22,6 +22,7 @@ ELF_SAMPLE = os.path.join(EXAMPLES, "firmware_agent.elf")
 PE_SAMPLE = os.path.join(EXAMPLES, "vulnerable_demo.exe")
 FIRMWARE_SAMPLE = os.path.join(EXAMPLES, "demo_firmware.bin")
 GHIDRA_FIXTURE = os.path.join(REPO_ROOT, "tests", "fixtures", "ghidra", "firmware_agent")
+QEMU_TRACE_DIR = os.path.join(REPO_ROOT, "tests", "fixtures", "qemu")
 
 
 def _run_generator(script: str, *args: str) -> None:
@@ -123,6 +124,23 @@ def ghidra_export_dir(elf_sample: str) -> str:
         finally:
             sys.argv = saved
     return GHIDRA_FIXTURE
+
+
+@pytest.fixture(scope="session")
+def qemu_traces(elf_sample: str) -> str:
+    """Recorded QEMU logs consistent with the ELF sample's real addresses."""
+    if not os.path.isfile(os.path.join(QEMU_TRACE_DIR, "firmware_agent.exec.log")):
+        script = os.path.join(REPO_ROOT, "tests", "fixtures", "make_qemu_fixture.py")
+        saved = sys.argv
+        sys.argv = [script]
+        try:
+            runpy.run_path(script, run_name="__main__")
+        except SystemExit as exc:
+            if exc.code not in (0, None):
+                raise
+        finally:
+            sys.argv = saved
+    return QEMU_TRACE_DIR
 
 
 @pytest.fixture()

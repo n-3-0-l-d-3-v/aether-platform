@@ -928,6 +928,44 @@ def cmd_diff_graph(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reach(args: argparse.Namespace) -> int:
+    """Chain observed execution, call sites, and import links into reachability."""
+    from aether.cartography.reachability import trace_cross_binary_reachability
+
+    project = _open_project(args)
+    try:
+        result = trace_cross_binary_reachability(project)
+
+        def render(record: dict[str, Any]) -> None:
+            print(f"[cartography] run {record['run_id']}")
+            print(
+                f"  {record['functions_considered']} observed function(s) considered, "
+                f"{record['sinks_reached']} cross-binary sink(s) reached"
+            )
+            for warning in record["warnings"]:
+                print(f"  ! {warning}")
+            if record["sinks_reached"]:
+                claims = project.find_claims(predicate="cross_binary_reachable", limit=200)
+                print()
+                _table(
+                    [
+                        [
+                            c["statement"]["reached_via_file"],
+                            c["statement"]["reached_via_function"],
+                            c["statement"]["symbol"],
+                            f"{c['confidence']['combined']:.2f}",
+                        ]
+                        for c in claims
+                    ],
+                    ["observed in", "function", "reaches symbol", "conf"],
+                )
+
+        _emit(result.to_record(), args.json, render)
+        return 0
+    finally:
+        project.close()
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from aether.mcp.server import serve_project
 
@@ -1279,6 +1317,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_diff_graph.add_argument("baseline", help="Project directory or export directory.")
     p_diff_graph.add_argument("target", help="Project directory or export directory.")
     p_diff_graph.set_defaults(func=cmd_diff_graph)
+
+    p_reach = subparsers.add_parser(
+        "reach",
+        help="Chain observed execution, call sites, and import links into "
+        "cross-binary reachability.",
+        description=(
+            "Needs a QEMU trace imported (function_reached claims), Ghidra "
+            "results imported (call-site xrefs), and 'aether map' already run "
+            "(imports_resolved_by claims). Missing any of the three yields "
+            "zero results with a warning, not an error."
+        ),
+    )
+    p_reach.set_defaults(func=cmd_reach)
 
     p_mcp = subparsers.add_parser("mcp", help="Serve the project over MCP on stdio.")
     p_mcp.add_argument(

@@ -679,6 +679,42 @@ CLAIM_PREDICATES: dict[str, ClaimPredicate] = {
             ],
         ),
         _pred(
+            "cross_binary_reachable",
+            "An exported symbol in the subject file is reachable from code "
+            "observed executing in another file, via a resolved import. "
+            "Chained evidence, not a fresh observation: it does not mean the "
+            "subject file's own implementation was itself seen running, only "
+            "that control flow reaches the point where it would be called.",
+            Field("symbol", "str", required=True),
+            Field(
+                "reached_via_file",
+                "str",
+                required=True,
+                doc="Logical path of the file where execution was observed.",
+            ),
+            Field(
+                "reached_via_function",
+                "str",
+                required=True,
+                doc="The observed-executing function that makes the call.",
+            ),
+            requires=[
+                EvidenceRequirement(
+                    "locus",
+                    ("export", "symbol"),
+                    1,
+                    "The sink: the exported symbol reached in the subject file.",
+                ),
+                EvidenceRequirement(
+                    "support",
+                    ("trace_hit", "xref", "import"),
+                    1,
+                    "The chain that justifies reachability: the runtime "
+                    "observation, the call site, and the resolved import.",
+                ),
+            ],
+        ),
+        _pred(
             "component_version_changed",
             "The same component appears at different versions across two "
             "projects being compared. A version-tracking claim, not a "

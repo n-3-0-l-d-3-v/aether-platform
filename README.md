@@ -24,7 +24,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 released, Phase 1 landed, Phase 2 underway
 
-All 25 gate checks pass, 290 tests pass.
+All 25 gate checks pass, 317 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -92,8 +92,8 @@ python examples/demo_phase1.py
   22/22 Phase 1 checks passed
 ```
 
-**Phase 2 is underway**, landed as two narrow, real capabilities rather than the
-full "cartography and campaigns" surface at once:
+**Phase 2 is underway**, landed as four narrow, real capabilities rather than
+the full "cartography and campaigns" surface at once:
 
 ```bash
 $ aether map
@@ -118,7 +118,37 @@ of a live dependency, and the resulting claims say so at reduced confidence.
 Version diffing compares embedded components across two independently analysed
 projects and can record what changed, evidenced in the newer project.
 
-All 14/14 Phase 2 checks pass:
+```bash
+$ aether reach
+[cartography] run run_d61b9bbf020e8572570e084d717f686d
+  3 observed function(s) considered, 2 cross-binary sink(s) reached
+
+observed in            function          reaches symbol  conf
+----------------------  ----------------  --------------  ----
+bin/firmware_agent      handle_name       strcpy          0.90
+bin/firmware_agent      run_diagnostics   system          0.95
+
+$ aether diff-graph ./baseline ./current
+comparing baseline -> current
+  artifacts: +12 -0   claims: +8 -0
+```
+
+Cross-binary sink reachability chains three claims that already independently
+exist - a function observed executing (QEMU), a call site into an import
+(Ghidra), and that import resolved to another file's export (`aether map`) -
+into a claim that a *specific, observed* code path reaches the boundary of
+another binary at a named symbol. Its confidence is the minimum, not the
+product, of the two chained claims: this is one reasoning chain, not two
+independent observations corroborating each other.
+
+The general evidence-graph diff turned out to be nearly free given
+content-addressed ids (ADR 0002): comparing two graphs is a set difference over
+ids, so `aether diff-graph` compares any two projects, two exports, or a
+project against its own export.
+
+`examples/demo_phase2.py` covers the first two capabilities end to end (14/14
+checks); reachability and the graph diff are exercised by their own dedicated
+suites, `tests/test_reachability.py` and `tests/test_graph_diff.py`:
 
 ```bash
 python examples/demo_phase2.py
@@ -138,11 +168,11 @@ python examples/demo_phase2.py
   14/14 Phase 2 checks passed
 ```
 
-Not attempted: cross-binary sink reachability, full campaign/fleet tracking, or
-a general evidence-graph diff. See
-[ADR 0008](docs/adr/0008-cartography-scope.md) for why the scope stopped there.
-Phase 3 - multi-agent orchestration and approval workflows - is deliberately
-**not** started.
+Not attempted: full campaign/fleet tracking - correlating many firmware images
+as variants of one product line needs a notion of "these images belong
+together" that nothing in the evidence model expresses yet. See
+[ADR 0008](docs/adr/0008-cartography-scope.md). Phase 3 - multi-agent
+orchestration and approval workflows - is deliberately **not** started.
 
 ## What works today
 
@@ -160,7 +190,7 @@ Phase 3 - multi-agent orchestration and approval workflows - is deliberately
 | Ghidra headless **runner** | written, **not yet run against a real Ghidra install** |
 | binwalk subprocess path | written, **not yet run against a real binwalk install** |
 | Deterministic Git-friendly export | working, tested |
-| MCP stdio server, 17 tools | working, tested |
+| MCP stdio server, 19 tools | working, tested |
 | CLI: init/analyze/query/export/check/doctor/mcp/eval | working |
 | Evaluation harness with ground-truth suites | working, recall 1.00 |
 | **P1** narrow NL interface, 5 question types | working, tested |
@@ -169,7 +199,9 @@ Phase 3 - multi-agent orchestration and approval workflows - is deliberately
 | **P1** QEMU trace *recording* | written, **not yet run against a real QEMU install** |
 | **P2** cross-binary import/export linking | working, tested |
 | **P2** version diffing between two projects | working, tested |
-| **P2** cross-binary sink reachability, campaign tracking | not started (see ADR 0008) |
+| **P2** cross-binary sink reachability | working, tested |
+| **P2** general evidence-graph diff | working, tested |
+| **P2** campaign/fleet tracking | not started (see ADR 0008) |
 
 The two "not yet run" rows are stated plainly because they matter. The
 translation layers on both sides are fully tested; what has not executed is the
@@ -215,7 +247,7 @@ aether doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 290 tests
+python -m pytest              # 317 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -451,7 +483,7 @@ aether mcp              # stdio JSON-RPC
 aether mcp --read-only  # hide and refuse every write tool
 ```
 
-Seventeen tools: inventory, artifact and claim queries, string search,
+Nineteen tools: inventory, artifact and claim queries, string search,
 decompilation retrieval, graph traversal, schema discovery, provenance,
 `aether_ask` for the question interface, plus `aether_submit_claim` and
 `aether_annotate` for writes. Agent-submitted claims go through exactly the
@@ -509,7 +541,7 @@ cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               290 tests
+tests/               317 tests
 ```
 
 ## Documentation

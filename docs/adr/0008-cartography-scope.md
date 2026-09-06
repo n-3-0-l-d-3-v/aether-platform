@@ -28,21 +28,19 @@ evidence spans two file objects.
 claims across two independently analysed projects, matched by component name,
 and optionally record `component_version_changed` claims in the newer project.
 
-## What is deliberately not attempted
+## What is deliberately not attempted here
 
-- **Cross-binary sink reachability.** "Binary A's exposed network handler calls
-  into binary B's `system()`" requires resolving the call graph *through* the
-  link edges above, which needs either static interprocedural analysis Aether
-  does not perform or a QEMU trace that spans process boundaries, which
-  `qemu-user` cannot produce. The link edges from this change are the
-  prerequisite; the traversal on top of them is not built.
+*(Updated - see the addendum below: two of these three were completed in a
+follow-up change once the tools to build them honestly already existed.
+Struck through, not deleted, so this ADR still records the reasoning at the
+time the scoping decision was made.)*
+
+- ~~**Cross-binary sink reachability.**~~ Completed. See the addendum.
 - **Full campaign / fleet tracking** - correlating many firmware images as
   variants of one product line. That needs a notion of "these N images are the
-  same campaign" that nothing in the evidence model currently expresses.
-- **A general evidence-graph diff.** Comparing every artifact and claim between
-  two projects, not just components, is a real feature and a larger one; this
-  ADR scopes down to the one dimension (component versions) that is both
-  measurable and immediately useful.
+  same campaign" that nothing in the evidence model currently expresses. Still
+  not attempted.
+- ~~**A general evidence-graph diff.**~~ Completed. See the addendum.
 
 ## Why a name match is honestly weak evidence, and the model says so
 
@@ -89,7 +87,34 @@ exists to prevent.
   predicate must have: no field of type "prose."
 - Cartography claims can be produced and re-run idempotently, like every other
   adapter - running `link_imports` twice converges rather than duplicating.
-- The next real step toward "sink reachability across files" is traversing
-  `imports_resolved_by` edges from a QEMU-observed `function_reached` claim in
-  one binary into another's risky-API usage. That is a natural Phase 2
-  follow-up, not attempted in this change.
+
+## Addendum: cross-binary sink reachability and a general graph diff
+
+Two of the three items this ADR originally deferred were completed in a
+follow-up change, once the tools to build them honestly already existed.
+
+**Cross-binary sink reachability** (`aether/cartography/reachability.py`)
+chains three claims that were already independently true in the graph: a
+function observed executing under QEMU (`function_reached`), a call from that
+function into an import (a Ghidra `xref`), and that import resolved to another
+file's export (`imports_resolved_by`). The result, `cross_binary_reachable`,
+says a *specific, observed* code path reaches the boundary of another binary
+at a named symbol - not that the other binary's own implementation was itself
+seen running, which nothing here observes. Its confidence is the *minimum* of
+the two chained claims' confidences, not their product: this is one reasoning
+chain where each half is necessary, not two independent observations
+corroborating the same fact, so noisy-OR (ADR 0003's combination rule for
+independent producers) does not apply here.
+
+**A general evidence-graph diff** (`aether/export/diff.py`) turned out to be
+nearly free given content-addressed ids (ADR 0002): comparing two graphs is a
+set difference over ids, because an id present on both sides is, by
+construction, the same artifact or claim. It compares a live project against
+another live project, an export against another export, or a project against
+its own export - the last of which is asserted to be identical in a test,
+since anything else would mean the export was lossy.
+
+Full campaign/fleet tracking - correlating many firmware images as variants of
+one product line - remains genuinely deferred. It needs a notion of "these N
+images belong together" that nothing in the evidence model expresses yet, and
+is a larger design decision than either of the above.

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import runpy
-import sys
 
 import pytest
 
@@ -17,22 +15,7 @@ from aether.errors import AdapterError
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TRACE_DIR = os.path.join(REPO_ROOT, "tests", "fixtures", "qemu")
 
-
-@pytest.fixture(scope="session")
-def qemu_traces(elf_sample: str) -> str:
-    """Recorded QEMU logs consistent with the ELF sample's real addresses."""
-    if not os.path.isfile(os.path.join(TRACE_DIR, "firmware_agent.exec.log")):
-        script = os.path.join(REPO_ROOT, "tests", "fixtures", "make_qemu_fixture.py")
-        saved = sys.argv
-        sys.argv = [script]
-        try:
-            runpy.run_path(script, run_name="__main__")
-        except SystemExit as exc:
-            if exc.code not in (0, None):
-                raise
-        finally:
-            sys.argv = saved
-    return TRACE_DIR
+# qemu_traces is defined in conftest.py, shared with test_reachability.py.
 
 
 @pytest.fixture()

@@ -411,6 +411,32 @@ def _diff_graph(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     return diff_snapshots(baseline, target).to_record()
 
 
+def _reach(project: Project, args: dict[str, Any]) -> dict[str, Any]:
+    from aether.cartography.reachability import trace_cross_binary_reachability
+
+    result = trace_cross_binary_reachability(project)
+    claims = (
+        project.find_claims(predicate="cross_binary_reachable", limit=200)
+        if result.sinks_reached
+        else []
+    )
+    return {
+        "run_id": result.run_id,
+        "functions_considered": result.functions_considered,
+        "sinks_reached": result.sinks_reached,
+        "warnings": result.warnings,
+        "reachable": [
+            {
+                "reached_via_file": c["statement"]["reached_via_file"],
+                "reached_via_function": c["statement"]["reached_via_function"],
+                "symbol": c["statement"]["symbol"],
+                "confidence": c["confidence"]["combined"],
+            }
+            for c in claims
+        ],
+    }
+
+
 def _map(project: Project, args: dict[str, Any]) -> dict[str, Any]:
     from aether.cartography import dependency_graph, link_imports
 
@@ -824,6 +850,24 @@ _register(
             }
         ),
         _map,
+        writes=True,
+    )
+)
+
+_register(
+    Tool(
+        "aether_reach",
+        "Chain three kinds of existing evidence into cross-binary sink "
+        "reachability: a function observed executing (from a QEMU trace), a "
+        "call site from that function into an import (from Ghidra xrefs), and "
+        "that import resolved to another file's export (from aether_map). The "
+        "result says a specific, observed code path reaches the boundary of "
+        "another binary at a named symbol - not that the other binary's "
+        "implementation was itself seen running. Needs all three ingredients "
+        "already in the project; missing any yields zero results with a "
+        "warning naming which one, not an error.",
+        _schema({}),
+        _reach,
         writes=True,
     )
 )
