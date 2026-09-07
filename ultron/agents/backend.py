@@ -89,6 +89,12 @@ class OllamaBackend:
     <model>``) - there is no hardcoded default model, on purpose. Ollama's own
     defaults change over time and silently binding to one would mean this
     code picks a model on the user's behalf without them knowing.
+
+    ``host`` is checked against Ultron's ``private`` sensitivity tier
+    (``ultron.network_policy``) at construction time: a non-local host raises
+    unless ``ULTRON_ALLOW_REMOTE_AGENT_HOST=1`` is set explicitly. This was
+    already local-only by convention (ADR 0010); it is now local-only by
+    construction too.
     """
 
     def __init__(
@@ -100,6 +106,9 @@ class OllamaBackend:
     ) -> None:
         if not model:
             raise ValueError("OllamaBackend requires a model name, e.g. 'llama3.2'")
+        from ultron.network_policy import assert_local_host
+
+        assert_local_host(host)
         self.model = model
         self.host = host.rstrip("/")
         self.timeout = timeout
