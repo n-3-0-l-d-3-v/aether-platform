@@ -12,8 +12,8 @@ import os
 
 import pytest
 
-from yugen.cli import main
-from yugen.eval import EvalError, load_suite, run_suite, run_suites
+from ultron.cli import main
+from ultron.eval import EvalError, load_suite, run_suite, run_suites
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SUITES = os.path.join(REPO_ROOT, "eval", "suites")
@@ -29,7 +29,7 @@ def run_cli(*argv: str) -> int:
 def test_init_creates_a_project(tmp_path, capsys):
     root = str(tmp_path / "proj")
     assert run_cli("init", root, "--name", "demo") == 0
-    assert os.path.isfile(os.path.join(root, "yugen.db"))
+    assert os.path.isfile(os.path.join(root, "ultron.db"))
     assert "initialized project 'demo'" in capsys.readouterr().out
 
 
@@ -98,7 +98,7 @@ def test_schema_query_lists_predicates(capsys):
 def test_missing_project_explains_itself(tmp_path, capsys, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert run_cli("query", "stats") == 2
-    assert "yugen init" in capsys.readouterr().err
+    assert "ultron init" in capsys.readouterr().err
 
 
 def test_unknown_claim_id_is_a_clean_error(tmp_path, elf_sample, capsys):
@@ -301,7 +301,7 @@ def test_doctor_folds_a_long_runtime_path(capsys, monkeypatch):
     """
     import subprocess
 
-    from yugen.adapters import ghidra
+    from ultron.adapters import ghidra
 
     long_path = (
         "C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/"
@@ -329,7 +329,7 @@ def test_java_probe_parses_a_version_string(monkeypatch):
     """Java reports its version on stderr, and Java 8 uses the 1.x scheme."""
     import subprocess
 
-    from yugen.adapters import ghidra
+    from ultron.adapters import ghidra
 
     monkeypatch.setattr(ghidra, "find_java", lambda: "/usr/bin/java")
 
@@ -347,7 +347,7 @@ def test_java_probe_parses_a_version_string(monkeypatch):
 def test_java_probe_rejects_a_runtime_older_than_ghidra_needs(monkeypatch):
     import subprocess
 
-    from yugen.adapters import ghidra
+    from ultron.adapters import ghidra
 
     monkeypatch.setattr(ghidra, "find_java", lambda: "/usr/bin/java")
 
@@ -369,7 +369,7 @@ def test_java_probe_rejects_a_runtime_older_than_ghidra_needs(monkeypatch):
 
 def test_nl_question_suite_passes():
     """Phase 1 requirement: measured precision on the evaluation suite."""
-    from yugen.eval import run_question_suite
+    from ultron.eval import run_question_suite
 
     report = run_question_suite(
         load_suite(os.path.join(SUITES, "nl_questions.json"))
@@ -386,7 +386,7 @@ def test_nl_question_suite_passes():
 
 def test_question_harness_catches_a_false_accept():
     """Answering an unsupported question is the error that matters most."""
-    from yugen.eval import run_question_suite
+    from ultron.eval import run_question_suite
 
     report = run_question_suite(
         {
@@ -403,7 +403,7 @@ def test_question_harness_catches_a_false_accept():
 
 
 def test_question_harness_catches_a_false_decline():
-    from yugen.eval import run_question_suite
+    from ultron.eval import run_question_suite
 
     report = run_question_suite(
         {
@@ -417,7 +417,7 @@ def test_question_harness_catches_a_false_decline():
 
 
 def test_question_harness_catches_a_wrong_type():
-    from yugen.eval import run_question_suite
+    from ultron.eval import run_question_suite
 
     report = run_question_suite(
         {
@@ -435,7 +435,7 @@ def test_question_harness_catches_a_wrong_type():
 
 def test_question_suite_requires_cases():
     with pytest.raises(EvalError, match="cases"):
-        from yugen.eval import run_question_suite
+        from ultron.eval import run_question_suite
 
         run_question_suite({"name": "empty", "kind": "questions", "cases": []})
 

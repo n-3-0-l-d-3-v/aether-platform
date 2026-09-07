@@ -6,11 +6,11 @@ import os
 
 import pytest
 
-from yugen.adapters.ghidra import GhidraAdapter
-from yugen.adapters.qemu import QemuAdapter
-from yugen.adapters.qemu import trace as trace_parser
-from yugen.adapters.triage import TriageAdapter
-from yugen.errors import AdapterError
+from ultron.adapters.ghidra import GhidraAdapter
+from ultron.adapters.qemu import QemuAdapter
+from ultron.adapters.qemu import trace as trace_parser
+from ultron.adapters.triage import TriageAdapter
+from ultron.errors import AdapterError
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TRACE_DIR = os.path.join(REPO_ROOT, "tests", "fixtures", "qemu")
@@ -222,7 +222,7 @@ def test_the_refusal_explains_the_risk_and_the_alternative(project, elf_sample):
 
 
 def test_cli_trace_refuses_without_the_flag(tmp_path, elf_sample, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -240,7 +240,7 @@ def test_probe_explains_how_to_install_when_absent():
 
 
 def test_doctor_reports_qemu(capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     assert main(["--json", "doctor"]) == 0
     import json

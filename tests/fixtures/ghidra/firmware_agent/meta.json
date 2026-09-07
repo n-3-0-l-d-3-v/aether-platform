@@ -17,7 +17,7 @@
   "executable_md5": "c352fdd9dcda462c25e82ca969d7b2b3",
   "executable_path": "/examples/firmware_agent.elf",
   "executable_sha256": "f4e90c138747ae48ebb88df63acf908604267d4b4c43a4b9fa2cd04fa53a7c52",
-  "format": "yugen.ghidra.export/1",
+  "format": "ultron.ghidra.export/1",
   "ghidra_version": "11.1.2",
   "image_base": 4194304,
   "language_id": "x86:LE:64:default",

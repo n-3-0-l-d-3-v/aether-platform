@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from yugen.errors import EvidenceError
-from yugen.evidence.models import EvidenceRef
-from yugen.review import approve, pending, reject
+from ultron.errors import EvidenceError
+from ultron.evidence.models import EvidenceRef
+from ultron.review import approve, pending, reject
 
 
 def _tool_claim(project, text="hello", confidence=0.9):
@@ -27,7 +27,7 @@ def _tool_claim(project, text="hello", confidence=0.9):
             [EvidenceRef(s.artifact_id, "locus")],
             subject_id=f.artifact_id,
             confidence=confidence,
-            producer="yugen-triage",
+            producer="ultron-triage",
             producer_kind="tool",
         )
 
@@ -155,8 +155,8 @@ def test_evidence_graph_stays_intact_after_review(project):
 
 
 def test_cli_review_list_and_approve(tmp_path, capsys):
-    from yugen.cli import main
-    from yugen.project import Project
+    from ultron.cli import main
+    from ultron.project import Project
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -179,8 +179,8 @@ def test_cli_review_list_and_approve(tmp_path, capsys):
 
 
 def test_cli_review_reject(tmp_path, capsys):
-    from yugen.cli import main
-    from yugen.project import Project
+    from ultron.cli import main
+    from ultron.project import Project
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -194,7 +194,7 @@ def test_cli_review_reject(tmp_path, capsys):
 
 
 def test_cli_review_approve_requires_a_claim_id(tmp_path, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     main(["init", str(tmp_path / "proj")])
     capsys.readouterr()
@@ -204,7 +204,7 @@ def test_cli_review_approve_requires_a_claim_id(tmp_path, capsys):
 
 
 def test_mcp_review_queue_is_read_only(project):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     claim = _agent_claim(project)
     server = MCPServer(project)
@@ -213,7 +213,7 @@ def test_mcp_review_queue_is_read_only(project):
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {"name": "yugen_review_queue", "arguments": {}},
+            "params": {"name": "ultron_review_queue", "arguments": {}},
         }
     )["result"]
     payload = response["structuredContent"]
@@ -223,11 +223,11 @@ def test_mcp_review_queue_is_read_only(project):
 
 def test_no_mcp_tool_can_approve_or_reject_a_claim(project):
     """The headline safety property: agents cannot mark their own homework."""
-    from yugen.mcp import tools
+    from ultron.mcp import tools
 
     names = set(tools.TOOLS)
     assert not any("approve" in name for name in names)
     assert not any("reject" in name for name in names)
-    # yugen_submit_claim exists and writes proposals; nothing promotes one.
-    assert "yugen_submit_claim" in names
-    assert tools.TOOLS["yugen_review_queue"].writes is False
+    # ultron_submit_claim exists and writes proposals; nothing promotes one.
+    assert "ultron_submit_claim" in names
+    assert tools.TOOLS["ultron_review_queue"].writes is False

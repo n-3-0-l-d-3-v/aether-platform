@@ -7,9 +7,9 @@ threshold so a single common library is never mistaken for a lineage.
 
 from __future__ import annotations
 
-from yugen.cartography.campaign import correlate_projects
-from yugen.evidence.models import EvidenceRef
-from yugen.project import Project
+from ultron.cartography.campaign import correlate_projects
+from ultron.evidence.models import EvidenceRef
+from ultron.project import Project
 
 
 def _file_only(project: Project, path: str, sha256: str) -> None:
@@ -211,7 +211,7 @@ def test_a_single_project_has_no_correlations(tmp_path):
 
 
 def test_cli_campaign_reports_a_correlation(tmp_path, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     main(["init", str(tmp_path / "a")])
     main(["init", str(tmp_path / "b")])
@@ -231,7 +231,7 @@ def test_cli_campaign_reports_a_correlation(tmp_path, capsys):
 
 
 def test_cli_campaign_requires_at_least_two_projects(tmp_path, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     main(["init", str(tmp_path / "a")])
     capsys.readouterr()
@@ -248,7 +248,7 @@ def _mcp_call(server, name: str, arguments=None):
 
 
 def test_mcp_campaign_correlates_against_another_project(project, tmp_path):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     other_dir = str(tmp_path / "other")
     other = Project.create(other_dir, "other")
@@ -258,15 +258,15 @@ def test_mcp_campaign_correlates_against_another_project(project, tmp_path):
     _file_only(project, "bin/boot", "x" * 64)
 
     server = MCPServer(project)
-    result = _mcp_call(server, "yugen_campaign", {"other_projects": [other_dir]})["structuredContent"]
+    result = _mcp_call(server, "ultron_campaign", {"other_projects": [other_dir]})["structuredContent"]
     assert result["campaigns"]
     assert "this_project" in result["campaigns"][0]
 
 
 def test_mcp_campaign_requires_other_projects(project):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     server = MCPServer(project)
-    result = _mcp_call(server, "yugen_campaign", {"other_projects": []})
+    result = _mcp_call(server, "ultron_campaign", {"other_projects": []})
     assert result["isError"] is True
     assert "at least one other project" in result["content"][0]["text"]

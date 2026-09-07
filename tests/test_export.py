@@ -10,10 +10,10 @@ from __future__ import annotations
 import json
 import os
 
-from yugen.adapters.ghidra import GhidraAdapter
-from yugen.adapters.triage import TriageAdapter
-from yugen.export import GRAPH_STREAMS, export_project, graph_digest
-from yugen.project import Project
+from ultron.adapters.ghidra import GhidraAdapter
+from ultron.adapters.triage import TriageAdapter
+from ultron.export import GRAPH_STREAMS, export_project, graph_digest
+from ultron.project import Project
 
 
 def _analyzed(root: str, elf_sample: str) -> Project:

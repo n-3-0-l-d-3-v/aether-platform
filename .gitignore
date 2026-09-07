@@ -17,28 +17,37 @@ examples/*.so
 examples/*.dll
 
 # ---------------------------------------------------------------------------
-# Yugen project directories
+# Ultron project directories
 #
 # A project holds a SQLite database, a content-addressed blob store of every
 # ingested file, and adapter scratch space. None of it belongs in git; use
-# `yugen export` for the Git-friendly representation.
+# `ultron export` for the Git-friendly representation.
 # ---------------------------------------------------------------------------
-yugen.db
+ultron.db
 *.db
 *.db-wal
 *.db-shm
 blobs/
 work/
 /work/
-*.yugen/
+*.ultron/
 
 # Exported evidence graphs written at the repository root.
 #
 # Anchored with a leading slash on purpose: a bare "export/" also matches the
-# yugen/export/ source package, which would silently drop a module from the
+# ultron/export/ source package, which would silently drop a module from the
 # repository.
 /export/
 /exports/
+
+# ---------------------------------------------------------------------------
+# Vault pending notes
+#
+# Pending RE findings (vault/Ultron/pending/) are unreviewed drafts and stay
+# local; a note only belongs in git once a human runs `ultron vault approve`
+# and it moves to vault/Ultron/approved/, which is tracked.
+# ---------------------------------------------------------------------------
+vault/Ultron/pending/
 
 # ---------------------------------------------------------------------------
 # Analysis engine caches and scratch output
