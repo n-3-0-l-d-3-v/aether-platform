@@ -36,7 +36,7 @@ already done well; the gap is everything around it.
 
 ## Status: Phase 0 released, Phase 1 and 2 landed, Phase 3 partial
 
-All 25 gate checks pass, 368 tests pass.
+All 25 gate checks pass, 385 tests pass.
 
 ```bash
 python examples/demo_phase0.py
@@ -326,7 +326,7 @@ ultron doctor
 ## Running the tests
 
 ```bash
-python -m pytest              # 368 tests
+python -m pytest              # 385 tests
 python -m pytest -q tests/test_evidence_model.py   # the invariants alone
 ```
 
@@ -568,6 +568,47 @@ decompilation retrieval, graph traversal, schema discovery, provenance,
 `ultron_annotate` for writes. Agent-submitted claims go through exactly the
 validation an adapter does and land as `proposed`.
 
+The transport is the hand-rolled JSON-RPC-over-stdio implementation from ADR
+0004, not the `mcp` PyPI package - kept that way through the rename so the
+zero-runtime-dependency guarantee (ADR 0001) still holds; see
+[ADR 0011](docs/adr/0011-rename-to-ultron-ecosystem-agent.md) for why that
+was a deliberate choice rather than an oversight.
+
+## The ecosystem agent contract
+
+Ultron is one specialist tool in a personal multi-agent developer ecosystem
+([ADR 0011](docs/adr/0011-rename-to-ultron-ecosystem-agent.md)). Three pieces
+exist purely for that:
+
+- **`agent.yaml`** at the repo root - a static manifest (name, role,
+  sensitivity tier, entrypoint, health-check command, vault path) a future
+  orchestrator reads without parsing this project's source.
+- **`ultron --health`** - prints a small, stable JSON block (version, whether
+  Ghidra/binwalk are reachable, last-run timestamp, cached test-suite status)
+  for a future health-polling agent. Deliberately separate from `ultron
+  doctor`, which stays human-facing prose with wrapped remedies.
+- **`ultron vault write/list/approve`** - writes RE findings as Markdown notes
+  into `vault/Ultron/pending/`. Nothing here auto-approves a note; only a
+  human running `ultron vault approve` moves one into `vault/Ultron/approved/`,
+  where it counts as committed knowledge. This is a *separate* gate from
+  `ultron review`: review approves structured claims already inside a
+  project's evidence graph, while the vault holds prose findings meant for a
+  knowledge base outside any one project - free text that the schema system
+  was never meant to check.
+
+### The `private` sensitivity tier
+
+`agent.yaml` declares `default_sensitivity_tier: private`: no analysis data
+leaves this machine. That was already true by convention (ADR 0010's local-
+only LLM backend); it is now also checked at construction time by
+`ultron/network_policy.py` - pointing the secrets-triage agent's backend at
+anything but `localhost`/`127.0.0.1` raises `RemoteHostRefused` unless
+`ULTRON_ALLOW_REMOTE_AGENT_HOST=1` is set explicitly. Every other module in
+this project performs no network I/O at all; `tests/test_ecosystem.py`
+patches `socket.socket.connect` and `urllib.request.urlopen` and runs
+`init`/`analyze`/`ask`/`--health` underneath the patch to check that claim
+structurally, not just by inspection.
+
 ## Git-friendly export
 
 `ultron export` writes two trees, and the split is the point:
@@ -618,11 +659,15 @@ ultron/
   nl/                the narrow question interface and its answer model
   review/            human approval workflow over agent-submitted claims
   eval/              evaluation harness
+  health.py          JSON status for --health, for an ecosystem health poller
+  vault.py           RE findings as reviewed Markdown notes (vault/Ultron/)
+  network_policy.py  structural enforcement of the 'private' sensitivity tier
 cli/                 entry point runnable without installing
 docs/                architecture and decision records
 eval/suites/         ground truth
 examples/            sample generators and the gate demonstration
-tests/               368 tests
+tests/               385 tests
+agent.yaml           ecosystem manifest: role, sensitivity tier, health check
 ```
 
 ## Documentation
