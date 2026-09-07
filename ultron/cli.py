@@ -1111,6 +1111,74 @@ def _render_agent_secrets(record: dict[str, Any]) -> None:
         )
 
 
+def cmd_health(args: argparse.Namespace) -> int:
+    """Emit a small, stable JSON health block for an ecosystem poller.
+
+    Unlike ``ultron doctor``, this always prints JSON regardless of
+    ``--json`` - a health check exists to be parsed by another program, not
+    read by a human at a terminal. See ``ultron/health.py``.
+    """
+    from ultron.health import collect_health
+
+    payload = collect_health(args.project)
+    print(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    return 0
+
+
+def cmd_vault(args: argparse.Namespace) -> int:
+    """Write and manage RE findings as reviewed Markdown notes.
+
+    Separate from ``ultron review`` (which approves *claims* inside a
+    project's evidence graph): a vault note is prose meant for the shared
+    ecosystem knowledge base, and it is gated by a filesystem workflow -
+    pending/ -> approved/ - rather than the schema system, because free text
+    cannot be schema-checked the way a claim can. See
+    docs/adr/0011-rename-to-ultron-ecosystem-agent.md.
+    """
+    from ultron import vault
+
+    vault_root = args.vault_root or vault.VAULT_ROOT_DEFAULT
+
+    if args.vault_action == "write":
+        note = vault.write_finding(
+            args.title,
+            args.body,
+            vault_root=vault_root,
+            claim_ids=args.claim_ids or [],
+            tags=args.tags or [],
+        )
+        _emit(
+            note.to_record(),
+            args.json,
+            lambda r: print(f"wrote {r['path']} (status: {r['status']})"),
+        )
+        return 0
+
+    if args.vault_action == "list":
+        notes = vault.list_notes(vault_root=vault_root)
+        payload = [n.to_record() for n in notes]
+        _emit(
+            payload,
+            args.json,
+            lambda rows: _table(
+                [[r["note_id"], r["status"], r["path"]] for r in rows],
+                ["id", "status", "path"],
+            ),
+        )
+        return 0
+
+    if args.vault_action == "approve":
+        note = vault.approve_note(args.note, vault_root=vault_root)
+        _emit(
+            note.to_record(),
+            args.json,
+            lambda r: print(f"approved {r['note_id']} -> {r['path']}"),
+        )
+        return 0
+
+    raise UltronError(f"unknown vault action {args.vault_action!r}")
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from ultron.mcp.server import serve_project
 
@@ -1573,6 +1641,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_mcp.set_defaults(func=cmd_mcp)
 
+    p_health = subparsers.add_parser(
+        "health",
+        help="Print a small JSON health block for an ecosystem poller (see --health).",
+    )
+    p_health.set_defaults(func=cmd_health)
+
+    p_vault = subparsers.add_parser(
+        "vault",
+        help="Write and manage RE findings as reviewed Markdown notes.",
+        description=(
+            "Findings land in vault/Ultron/pending/ first. Nothing here ever "
+            "auto-approves a note - only 'ultron vault approve', run by a "
+            "human, moves one to vault/Ultron/approved/, where it counts as "
+            "committed knowledge."
+        ),
+    )
+    vault_subs = p_vault.add_subparsers(dest="vault_action", required=True)
+
+    v_write = vault_subs.add_parser("write", help="Write a new pending finding.")
+    v_write.add_argument("title", help="Short title for the note.")
+    v_write.add_argument("body", help="Markdown body of the finding.")
+    v_write.add_argument(
+        "--claim-id",
+        action="append",
+        dest="claim_ids",
+        help="Claim id this finding cites; may be given multiple times.",
+    )
+    v_write.add_argument(
+        "--tag", action="append", dest="tags", help="Tag for the note; may repeat."
+    )
+
+    v_list = vault_subs.add_parser("list", help="List pending and approved notes.")
+
+    v_approve = vault_subs.add_parser(
+        "approve", help="Move a pending note to approved/. Human-run only."
+    )
+    v_approve.add_argument("note", help="Path or filename of the pending note.")
+
+    for sub in (v_write, v_list, v_approve):
+        sub.add_argument("--vault-root", dest="vault_root", help="Vault directory (default: vault/Ultron).")
+        sub.set_defaults(func=cmd_vault)
+
     p_eval = subparsers.add_parser("eval", help="Score claims against ground truth.")
     p_eval.add_argument("suites", nargs="*", help="Suite files (default: eval/suites/*.json).")
     p_eval.add_argument("--base-dir", default=".", help="Root for paths inside suites.")
@@ -1582,6 +1692,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+
+    # `ultron --health` is a top-level flag, per agent.yaml's
+    # health_check_command, rather than living behind the normal required
+    # subcommand - a health poller should not need to know this tool's
+    # subcommand structure to check whether it is alive.
+    if "--health" in raw_argv:
+        remaining = [a for a in raw_argv if a != "--health"]
+        health_parser = argparse.ArgumentParser(add_help=False)
+        health_parser.add_argument("--project", "-P")
+        health_parser.add_argument("--json", action="store_true")
+        health_args, _ = health_parser.parse_known_args(remaining)
+        return cmd_health(health_args)
+
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
