@@ -6,9 +6,9 @@ import sqlite3
 
 import pytest
 
-from yugen.errors import EvidenceError, ProjectError
-from yugen.evidence.models import EvidenceRef
-from yugen.project import Project
+from ultron.errors import EvidenceError, ProjectError
+from ultron.evidence.models import EvidenceRef
+from ultron.project import Project
 
 FILE_DATA = {
     "path": "bin/target",
@@ -66,7 +66,7 @@ def test_creating_over_an_existing_project_is_refused(tmp_path):
 
 
 def test_opening_a_missing_project_explains_the_fix(tmp_path):
-    with pytest.raises(ProjectError, match="yugen init"):
+    with pytest.raises(ProjectError, match="ultron init"):
         Project.open(str(tmp_path / "nothing"))
 
 

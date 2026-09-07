@@ -1,6 +1,6 @@
 """Generate the ELF evaluation sample.
 
-Yugen's evaluation harness needs a binary whose ground truth is known exactly:
+Ultron's evaluation harness needs a binary whose ground truth is known exactly:
 every string, every import, every mitigation flag. Compiling one is not an
 option here - the host toolchain emits PE - and shipping a scavenged ELF would
 mean shipping guesses about its contents.

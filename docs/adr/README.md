@@ -15,3 +15,4 @@ where the answer is not obvious from the code.
 | [0008](0008-cartography-scope.md) | Phase 2 lands as four narrow, real capabilities |
 | [0009](0009-approval-is-cli-only.md) | Approval and rejection are never exposed as MCP tools |
 | [0010](0010-specialist-agents-are-local-and-cli-only.md) | Specialist agents are local-only and CLI-only |
+| [0011](0011-rename-to-ultron-ecosystem-agent.md) | Rename to Ultron, joining a personal multi-agent ecosystem |

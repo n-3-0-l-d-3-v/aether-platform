@@ -28,11 +28,11 @@ import tempfile
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
 
-from yugen.cartography import dependency_graph, link_imports  # noqa: E402
-from yugen.cartography.diff import diff_components, record_version_changes  # noqa: E402
-from yugen.evidence.models import EvidenceRef  # noqa: E402
-from yugen.mcp.server import MCPServer  # noqa: E402
-from yugen.project import Project  # noqa: E402
+from ultron.cartography import dependency_graph, link_imports  # noqa: E402
+from ultron.cartography.diff import diff_components, record_version_changes  # noqa: E402
+from ultron.evidence.models import EvidenceRef  # noqa: E402
+from ultron.mcp.server import MCPServer  # noqa: E402
+from ultron.project import Project  # noqa: E402
 
 RESULTS: list[tuple[str, bool, str]] = []
 
@@ -48,10 +48,10 @@ def heading(text: str) -> None:
 
 
 def main() -> int:
-    print("Yugen - Phase 2 demonstration")
+    print("Ultron - Phase 2 demonstration")
     print("=" * 62)
 
-    workspace = tempfile.mkdtemp(prefix="yugen-p2-")
+    workspace = tempfile.mkdtemp(prefix="ultron-p2-")
     try:
         # -- cross-binary linking --------------------------------------------
         heading("1. cross-binary import/export linking")
@@ -119,11 +119,11 @@ def main() -> int:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "yugen_map", "arguments": {}},
+                "params": {"name": "ultron_map", "arguments": {}},
             }
         )["result"]
         check(
-            "the same linking is available to agents via yugen_map",
+            "the same linking is available to agents via ultron_map",
             response["structuredContent"]["links_found"] == 1,
         )
 

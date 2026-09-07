@@ -27,17 +27,17 @@ import tempfile
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
 
-from yugen.adapters.binwalk import BinwalkAdapter  # noqa: E402
-from yugen.adapters.ghidra import GhidraAdapter  # noqa: E402
-from yugen.adapters.qemu import QemuAdapter  # noqa: E402
-from yugen.adapters.triage import TriageAdapter  # noqa: E402
-from yugen.errors import AdapterError  # noqa: E402
-from yugen.eval import load_suite, run_question_suite  # noqa: E402
-from yugen.mcp.server import MCPServer  # noqa: E402
-from yugen.nl import ask  # noqa: E402
-from yugen.nl.model import validate_answer  # noqa: E402
-from yugen.nl.questions import QUESTION_TYPES  # noqa: E402
-from yugen.project import Project  # noqa: E402
+from ultron.adapters.binwalk import BinwalkAdapter  # noqa: E402
+from ultron.adapters.ghidra import GhidraAdapter  # noqa: E402
+from ultron.adapters.qemu import QemuAdapter  # noqa: E402
+from ultron.adapters.triage import TriageAdapter  # noqa: E402
+from ultron.errors import AdapterError  # noqa: E402
+from ultron.eval import load_suite, run_question_suite  # noqa: E402
+from ultron.mcp.server import MCPServer  # noqa: E402
+from ultron.nl import ask  # noqa: E402
+from ultron.nl.model import validate_answer  # noqa: E402
+from ultron.nl.questions import QUESTION_TYPES  # noqa: E402
+from ultron.project import Project  # noqa: E402
 
 EXAMPLES = os.path.join(REPO_ROOT, "examples")
 ELF = os.path.join(EXAMPLES, "firmware_agent.elf")
@@ -89,11 +89,11 @@ def build_inputs() -> None:
 
 
 def main() -> int:
-    print("Yugen - Phase 1 demonstration")
+    print("Ultron - Phase 1 demonstration")
     print("=" * 62)
     build_inputs()
 
-    workspace = tempfile.mkdtemp(prefix="yugen-p1-")
+    workspace = tempfile.mkdtemp(prefix="ultron-p1-")
     project = Project.create(os.path.join(workspace, "project"), "phase1-demo")
 
     try:
@@ -279,7 +279,7 @@ def main() -> int:
                 "id": 1,
                 "method": "tools/call",
                 "params": {
-                    "name": "yugen_ask",
+                    "name": "ultron_ask",
                     "arguments": {"question": "are there any hardcoded secrets?"},
                 },
             }

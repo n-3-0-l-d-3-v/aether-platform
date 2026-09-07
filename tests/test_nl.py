@@ -11,10 +11,10 @@ import json
 
 import pytest
 
-from yugen.errors import EvidenceError
-from yugen.nl import ask, classify, describe_supported, score_all
-from yugen.nl.model import Answer, AnswerError, AnswerLine, Finding, validate_answer
-from yugen.nl.questions import MATCH_THRESHOLD, QUESTION_TYPES, normalize
+from ultron.errors import EvidenceError
+from ultron.nl import ask, classify, describe_supported, score_all
+from ultron.nl.model import Answer, AnswerError, AnswerLine, Finding, validate_answer
+from ultron.nl.questions import MATCH_THRESHOLD, QUESTION_TYPES, normalize
 
 
 @pytest.fixture()
@@ -171,7 +171,7 @@ def test_a_valid_answer_passes_validation():
         predicate="contains_hardcoded_secret",
         statement={"secret_kind": "api_token"},
         confidence=0.9,
-        producers=("yugen-triage",),
+        producers=("ultron-triage",),
         subject_path="etc/config",
     )
     answer = Answer(
@@ -235,7 +235,7 @@ def test_declined_answer_offers_the_supported_set(firmware_project):
 
 def test_a_question_with_no_matching_evidence_still_answers_honestly(project, elf_sample):
     """No findings must produce a caveat, not silence and not an invention."""
-    from yugen.adapters.triage import TriageAdapter
+    from ultron.adapters.triage import TriageAdapter
 
     TriageAdapter().analyze(project, elf_sample, logical_path="bin/agent")
     answer = ask(project, "what urls does it contain", object_reference="bin/agent")
@@ -268,7 +268,7 @@ def test_findings_are_ordered_by_confidence(firmware_project):
 
 
 def test_cli_ask_renders_citations(tmp_path, firmware_sample, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -283,7 +283,7 @@ def test_cli_ask_renders_citations(tmp_path, firmware_sample, capsys):
 
 def test_cli_ask_declines_without_failing(tmp_path, firmware_sample, capsys):
     """Declining is a correct outcome; the exit code must not say otherwise."""
-    from yugen.cli import main
+    from ultron.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -297,7 +297,7 @@ def test_cli_ask_declines_without_failing(tmp_path, firmware_sample, capsys):
 
 
 def test_cli_ask_lists_supported_questions(capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     assert main(["ask", "--list"]) == 0
     output = capsys.readouterr().out
@@ -306,7 +306,7 @@ def test_cli_ask_lists_supported_questions(capsys):
 
 
 def test_mcp_ask_returns_structured_citations(firmware_project):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     server = MCPServer(firmware_project)
     response = server.handle_message(
@@ -315,7 +315,7 @@ def test_mcp_ask_returns_structured_citations(firmware_project):
             "id": 1,
             "method": "tools/call",
             "params": {
-                "name": "yugen_ask",
+                "name": "ultron_ask",
                 "arguments": {"question": "what components are embedded?"},
             },
         }
@@ -330,7 +330,7 @@ def test_mcp_ask_returns_structured_citations(firmware_project):
 
 
 def test_mcp_ask_declines_out_of_scope_questions(firmware_project):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     server = MCPServer(firmware_project)
     response = server.handle_message(
@@ -339,7 +339,7 @@ def test_mcp_ask_declines_out_of_scope_questions(firmware_project):
             "id": 1,
             "method": "tools/call",
             "params": {
-                "name": "yugen_ask",
+                "name": "ultron_ask",
                 "arguments": {"question": "should I ship this product"},
             },
         }

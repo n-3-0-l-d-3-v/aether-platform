@@ -146,7 +146,7 @@ def qemu_traces(elf_sample: str) -> str:
 @pytest.fixture()
 def project(tmp_path):
     """An empty project in a temporary directory."""
-    from yugen.project import Project
+    from ultron.project import Project
 
     instance = Project.create(str(tmp_path / "proj"), "test")
     yield instance
@@ -162,8 +162,8 @@ def analysed_firmware(tmp_path_factory, firmware_sample):
     it again. Shared deliberately: callers must not write to it. Anything that
     mutates should take the function-scoped `project` fixture instead.
     """
-    from yugen.adapters.binwalk import BinwalkAdapter
-    from yugen.project import Project
+    from ultron.adapters.binwalk import BinwalkAdapter
+    from ultron.project import Project
 
     root = tmp_path_factory.mktemp("analysed-firmware")
     instance = Project.create(str(root / "proj"), "shared-firmware")
@@ -177,7 +177,7 @@ def analysed_firmware(tmp_path_factory, firmware_sample):
 @pytest.fixture()
 def triaged_elf(project, elf_sample):
     """A project with the ELF sample triaged, and its file artifact id."""
-    from yugen.adapters.triage import TriageAdapter
+    from ultron.adapters.triage import TriageAdapter
 
     result = TriageAdapter().analyze(
         project, elf_sample, logical_path="bin/firmware_agent"

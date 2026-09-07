@@ -24,13 +24,13 @@ import tempfile
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
 
-from yugen.adapters.binwalk import BinwalkAdapter  # noqa: E402
-from yugen.adapters.ghidra import GhidraAdapter  # noqa: E402
-from yugen.adapters.triage import TriageAdapter  # noqa: E402
-from yugen.eval import load_suite, run_suite  # noqa: E402
-from yugen.export import export_project  # noqa: E402
-from yugen.mcp.server import MCPServer  # noqa: E402
-from yugen.project import Project  # noqa: E402
+from ultron.adapters.binwalk import BinwalkAdapter  # noqa: E402
+from ultron.adapters.ghidra import GhidraAdapter  # noqa: E402
+from ultron.adapters.triage import TriageAdapter  # noqa: E402
+from ultron.eval import load_suite, run_suite  # noqa: E402
+from ultron.export import export_project  # noqa: E402
+from ultron.mcp.server import MCPServer  # noqa: E402
+from ultron.project import Project  # noqa: E402
 
 EXAMPLES = os.path.join(REPO_ROOT, "examples")
 ELF = os.path.join(EXAMPLES, "firmware_agent.elf")
@@ -98,11 +98,11 @@ def _run_script(path: str, *args: str) -> None:
 
 
 def main() -> int:
-    print("Yugen - Phase 0 gate demonstration")
+    print("Ultron - Phase 0 gate demonstration")
     print("=" * 60)
     build_samples()
 
-    workspace = tempfile.mkdtemp(prefix="yugen-demo-")
+    workspace = tempfile.mkdtemp(prefix="ultron-demo-")
     project = Project.create(os.path.join(workspace, "project"), "phase0-demo")
 
     try:
@@ -250,7 +250,7 @@ def main() -> int:
         )["result"]["tools"]
         check(
             "protocol handshake and tool discovery",
-            init["serverInfo"]["name"] == "yugen" and len(listed) >= 10,
+            init["serverInfo"]["name"] == "ultron" and len(listed) >= 10,
             f"protocol {init['protocolVersion']}, {len(listed)} tools",
         )
 
@@ -264,7 +264,7 @@ def main() -> int:
                 }
             )["result"]
 
-        search = call("yugen_search_strings", {"query": "AKIA"})["structuredContent"]
+        search = call("ultron_search_strings", {"query": "AKIA"})["structuredContent"]
         check(
             "structured query returns located evidence",
             bool(search["matches"]) and search["matches"][0]["addr"].startswith("0x"),
@@ -273,7 +273,7 @@ def main() -> int:
 
         string_artifact = project.find_artifacts(kind="string", object_id=elf_object, limit=1)[0]
         accepted = call(
-            "yugen_submit_claim",
+            "ultron_submit_claim",
             {
                 "predicate": "contains_string",
                 "statement": {"text": string_artifact.data["text"], "encoding": "ascii"},
@@ -289,7 +289,7 @@ def main() -> int:
         )
 
         refused = call(
-            "yugen_submit_claim",
+            "ultron_submit_claim",
             {
                 "predicate": "contains_hardcoded_secret",
                 "statement": {
@@ -308,7 +308,7 @@ def main() -> int:
         )
 
         unevidenced = call(
-            "yugen_submit_claim",
+            "ultron_submit_claim",
             {
                 "predicate": "contains_hardcoded_secret",
                 "statement": {"secret_kind": "api_token", "detector": "agent:demo"},

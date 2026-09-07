@@ -1,4 +1,4 @@
-# Yugen
+# Ultron
 
 [![CI](https://github.com/n-3-0-l-d-3-v/aether-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/n-3-0-l-d-3-v/aether-platform/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
@@ -7,7 +7,7 @@
 
 **Evidence-first binary and firmware analysis.**
 
-Yugen sits on top of mature engines — Ghidra headless, binwalk — and
+Ultron sits on top of mature engines — Ghidra headless, binwalk — and
 contributes the thing they do not: a project model where **every finding is a
 structured claim linked to the exact artifacts that support it**.
 
@@ -17,12 +17,20 @@ cannot be stored without artifact ids of the kinds that predicate demands. An
 agent that tries to write "this looks exploitable" gets a schema error naming
 the offending field.
 
-Yugen builds no disassembler and no decompiler, and it never will. That work is
+Ultron builds no disassembler and no decompiler, and it never will. That work is
 already done well; the gap is everything around it.
 
-*Formerly named Aether. Yugen (幽玄) is a Japanese aesthetic term for a truth*
-*perceived through subtle suggestion rather than full disclosure — the same*
-*principle behind evidence-only, never-over-assert claims.*
+*Formerly named Aether, then Yugen. Yugen (幽玄) is a Japanese aesthetic term*
+*for a truth perceived through subtle suggestion rather than full disclosure —*
+*the same principle behind evidence-only, never-over-assert claims, and the*
+*name this project carried while it was developed standalone. It is now*
+*renamed Ultron on joining a personal multi-agent developer ecosystem, where*
+*each specialist tool takes an agent name; here it is the reverse-engineering*
+*and security specialist. The rename is cosmetic — every invariant below,*
+*the evidence-graph discipline, the claim schema, and the zero-dependency*
+*core, carries over unchanged. See*
+*[ADR 0011](docs/adr/0011-rename-to-ultron-ecosystem-agent.md) for the full*
+*reasoning.*
 
 ---
 
@@ -55,7 +63,7 @@ Phase 0 is released as
 emulation-based reachability.
 
 ```bash
-$ yugen ask "are there any hardcoded secrets?"
+$ ultron ask "are there any hardcoded secrets?"
 [hardcoded_secrets] 11 claim(s) cited
 
 11 credential-shaped literals across the project: 3 private key,
@@ -100,7 +108,7 @@ python examples/demo_phase1.py
 "cartography and campaigns" surface at once:
 
 ```bash
-$ yugen map
+$ ultron map
 [cartography] run run_b05687d13748b3bad67b684d986c0f8e
   8 file(s) considered, 1 link(s) found
 
@@ -108,7 +116,7 @@ consumer   symbol             provider           conf
 ---------  -----------------  -----------------  ----
 bin/app    EVP_EncryptUpdate  lib/libcrypto.so   0.6
 
-$ yugen diff-versions ../previous-build --record
+$ ultron diff-versions ../previous-build --record
 kind     component  from      to
 -------  ---------  --------  ------
 changed  openssl    1.0.2u    3.0.1
@@ -123,7 +131,7 @@ Version diffing compares embedded components across two independently analysed
 projects and can record what changed, evidenced in the newer project.
 
 ```bash
-$ yugen reach
+$ ultron reach
 [cartography] run run_d61b9bbf020e8572570e084d717f686d
   3 observed function(s) considered, 2 cross-binary sink(s) reached
 
@@ -132,14 +140,14 @@ observed in            function          reaches symbol  conf
 bin/firmware_agent      handle_name       strcpy          0.90
 bin/firmware_agent      run_diagnostics   system          0.95
 
-$ yugen diff-graph ./baseline ./current
+$ ultron diff-graph ./baseline ./current
 comparing baseline -> current
   artifacts: +12 -0   claims: +8 -0
 ```
 
 Cross-binary sink reachability chains three claims that already independently
 exist - a function observed executing (QEMU), a call site into an import
-(Ghidra), and that import resolved to another file's export (`yugen map`) -
+(Ghidra), and that import resolved to another file's export (`ultron map`) -
 into a claim that a *specific, observed* code path reaches the boundary of
 another binary at a named symbol. Its confidence is the minimum, not the
 product, of the two chained claims: this is one reasoning chain, not two
@@ -147,7 +155,7 @@ independent observations corroborating each other.
 
 The general evidence-graph diff turned out to be nearly free given
 content-addressed ids (ADR 0002): comparing two graphs is a set difference over
-ids, so `yugen diff-graph` compares any two projects, two exports, or a
+ids, so `ultron diff-graph` compares any two projects, two exports, or a
 project against its own export.
 
 `examples/demo_phase2.py` covers the first two capabilities end to end (14/14
@@ -163,7 +171,7 @@ python examples/demo_phase2.py
   [PASS] a ubiquitous libc symbol (malloc) is excluded by default
   [PASS] a name-match join scores below a direct header reading
   [PASS] re-running linking converges rather than duplicating
-  [PASS] the same linking is available to agents via yugen_map
+  [PASS] the same linking is available to agents via ultron_map
   [PASS] a version bump between two projects is detected
   [PASS] the recorded claim cites real evidence, not just text
   [PASS] the baseline project is never written to
@@ -179,7 +187,7 @@ signal, gated by a threshold so one common library is never mistaken for a
 lineage.
 
 ```bash
-$ yugen campaign ./firmware-v1 ./firmware-v2 ./unrelated-device
+$ ultron campaign ./firmware-v1 ./firmware-v2 ./unrelated-device
 campaign 1: ./firmware-v1, ./firmware-v2
     ./firmware-v1 <-> ./firmware-v2  (shared_file: 1 identical file(s), e.g. bin/bootloader (f4e90c13...))
 
@@ -198,36 +206,36 @@ exactly - a claim's `status` field and the fact that an agent-submitted claim
 already lands as `proposed`. That part is built:
 
 ```bash
-$ yugen review list
+$ ultron review list
 id                predicate        conf  producers   subject  statement
 ----------------  ---------------  ----  ----------  -------  ------------------------
 clm_6baf38592005  contains_string  0.50  agent:demo  bin/app  {"text": "sketchy string"}
 
-$ yugen review approve clm_6baf38592005 --reviewer neil --note "reviewed, looks fine"
+$ ultron review approve clm_6baf38592005 --reviewer neil --note "reviewed, looks fine"
 clm_6baf38592005... -> accepted by neil
 ```
 
-`yugen_review_queue` lets an agent see the queue over MCP, but **there is no
+`ultron_review_queue` lets an agent see the queue over MCP, but **there is no
 approve or reject MCP tool, and there never will be** - a test enumerates the
 tool registry and asserts no tool name contains "approve" or "reject". An
 agent can see whether its own proposal is still pending; it cannot close the
 loop itself. See [ADR 0009](docs/adr/0009-approval-is-cli-only.md).
 
-**The first specialist agent has landed**, narrowly: `yugen agent secrets`
+**The first specialist agent has landed**, narrowly: `ultron agent secrets`
 sends string evidence already in a project to a locally-running LLM (Ollama)
 and proposes `contains_hardcoded_secret` / `suspicious_string` claims for
 patterns the deterministic rules would plausibly miss. Its backend is
 local-only by hard requirement, not a default - no cloud vendor is ever
 called - and, like every other agent submission, its output lands as
-`proposed` and needs a human running `yugen review approve` to go further.
+`proposed` and needs a human running `ultron review approve` to go further.
 There is no MCP tool for it, on purpose, for now. See
 [ADR 0010](docs/adr/0010-specialist-agents-are-local-and-cli-only.md).
 
 ```bash
-$ yugen agent secrets --model llama3.2 --max-claims 5
+$ ultron agent secrets --model llama3.2 --max-claims 5
 [agent secrets] proposed 1 claim(s)
   considered 42   skipped: existing 6, low-confidence 3, malformed 0
-  these are 'proposed', not 'accepted' - review them with 'yugen review list' and 'yugen review approve'
+  these are 'proposed', not 'accepted' - review them with 'ultron review list' and 'ultron review approve'
 ```
 
 This is one agent, not "full specialist agents" in the general sense the
@@ -292,12 +300,12 @@ python examples/demo_phase0.py
 Working with a project directly:
 
 ```bash
-python cli/yugen.py init ./work
-python cli/yugen.py -P ./work analyze examples/demo_firmware.bin
-python cli/yugen.py -P ./work query objects
-python cli/yugen.py -P ./work query claims --predicate contains_hardcoded_secret
-python cli/yugen.py -P ./work query claim clm_1284ca2d2406
-python cli/yugen.py -P ./work export ./work/export
+python cli/ultron.py init ./work
+python cli/ultron.py -P ./work analyze examples/demo_firmware.bin
+python cli/ultron.py -P ./work query objects
+python cli/ultron.py -P ./work query claims --predicate contains_hardcoded_secret
+python cli/ultron.py -P ./work query claim clm_1284ca2d2406
+python cli/ultron.py -P ./work export ./work/export
 ```
 
 Sample binaries are generated, not committed. `examples/demo_phase0.py` and the
@@ -308,11 +316,11 @@ python examples/src/build_elf_sample.py examples/firmware_agent.elf
 python examples/src/build_firmware_sample.py examples/demo_firmware.bin
 ```
 
-Installing puts `yugen` on PATH:
+Installing puts `ultron` on PATH:
 
 ```bash
 pip install -e .
-yugen doctor
+ultron doctor
 ```
 
 ## Running the tests
@@ -334,23 +342,23 @@ evaluation suites on Linux, Windows, and macOS across Python 3.10 and 3.12.
 ## What it looks like
 
 ```
-$ yugen analyze demo_firmware.bin
+$ ultron analyze demo_firmware.bin
 [binwalk] run run_e65361591a1e...
-  engine yugen-carver   extracted 7 file(s)
+  engine ultron-carver   extracted 7 file(s)
     bin/diagnostics.exe                    pe          132.4 KiB
     bin/firmware_agent                     elf         1.8 KiB
     etc/dropbear/dropbear_rsa_host_key.pem certificate 196 B
     etc/telemetry.conf                     data        219 B
 
-$ yugen query claims --predicate contains_hardcoded_secret
+$ ultron query claims --predicate contains_hardcoded_secret
 id                predicate                  conf  prod  ev  subject             statement
 ----------------  -------------------------  ----  ----  --  -----------------  --------------------
 clm_1284ca2d2406  contains_hardcoded_secret  0.95  1     1   etc/telemetry.conf  {"detector": "rul...
 clm_0217e368bbeb  contains_hardcoded_secret  0.98  1     1   etc/dropbear/dro..  {"detector": "rul...
 
-$ yugen query claim clm_1284ca2d2406
+$ ultron query claim clm_1284ca2d2406
 claim   clm_1284ca2d2406f45deb3f680afb7914f5
-schema  yugen.claim.contains_hardcoded_secret/1
+schema  ultron.claim.contains_hardcoded_secret/1
 stated  {"detector": "rule:github-token", "redacted_preview": "ghp_****", "secret_kind": "api_token"}
 conf    0.95 (max 0.95 across 1 producer(s))
 
@@ -400,14 +408,14 @@ export stream, where they can never be mistaken for findings.
 
 ## Enabling the full engines
 
-Yugen runs without Ghidra or binwalk, at reduced depth, and says so. `yugen
+Ultron runs without Ghidra or binwalk, at reduced depth, and says so. `ultron
 doctor` reports every component - including the JDK on its own row, because
 Ghidra headless fails on a missing or too-old runtime in a way that reads as a
 Ghidra problem - along with what each gap costs and how to close it:
 
 ```bash
-$ yugen doctor
-yugen 0.1.0  (python 3.12.2, win32)
+$ ultron doctor
+ultron 0.1.0  (python 3.12.2, win32)
 
   ok       triage    0.1.0      built in; no external engine required
   MISSING  java      -          not found on PATH or under JAVA_HOME
@@ -422,7 +430,7 @@ yugen 0.1.0  (python 3.12.2, win32)
            fix:      Install Ghidra (https://ghidra-sre.org) and set
                      GHIDRA_INSTALL_DIR to its directory, or put
                      support/analyzeHeadless on PATH. Or skip the local install
-                     entirely: yugen import-ghidra <dir> --object <file>
+                     entirely: ultron import-ghidra <dir> --object <file>
                      ingests an export produced on any machine.
 
   MISSING  binwalk   -          binwalk was not found on PATH
@@ -433,7 +441,7 @@ yugen 0.1.0  (python 3.12.2, win32)
                      also wants sasquatch, jefferson, and ubi_reader.
 
 1 of 4 components available.
-Yugen still runs: header triage, firmware carving, the evidence graph,
+Ultron still runs: header triage, firmware carving, the evidence graph,
 the MCP server, and export all work without any external engine.
 ```
 
@@ -445,22 +453,22 @@ located strings. Without it, header-level triage still runs.
 1. Install [Ghidra](https://ghidra-sre.org) (11.x recommended).
 2. Install a **JDK 21 or newer** and make sure `java` is on `PATH`, or set
    `JAVA_HOME`. Ghidra headless will not start without it.
-3. Point Yugen at the install:
+3. Point Ultron at the install:
 
    ```bash
    export GHIDRA_INSTALL_DIR=/opt/ghidra_11.1.2_PUBLIC     # Linux/macOS
    setx GHIDRA_INSTALL_DIR "C:\ghidra_11.1.2_PUBLIC"       # Windows
    ```
 
-   `YUGEN_GHIDRA_HOME` and `GHIDRA_HOME` are also honoured, and
-   `support/analyzeHeadless` on `PATH` works too. Failing all of those, Yugen
+   `ULTRON_GHIDRA_HOME` and `GHIDRA_HOME` are also honoured, and
+   `support/analyzeHeadless` on `PATH` works too. Failing all of those, Ultron
    checks the conventional install directories.
 
 4. Verify and run:
 
    ```bash
-   yugen doctor
-   yugen -P ./work analyze ./target.elf --engine ghidra
+   ultron doctor
+   ultron -P ./work analyze ./target.elf --engine ghidra
    ```
 
 **You do not need Ghidra locally to use Ghidra results.** The bridge splits
@@ -469,15 +477,15 @@ anywhere:
 
 ```bash
 # on the machine that has Ghidra
-analyzeHeadless /tmp/proj yugen -import target.elf \
-    -scriptPath yugen/adapters/ghidra/scripts \
-    -postScript YugenExport.py /tmp/export 40 "" -deleteProject
+analyzeHeadless /tmp/proj ultron -import target.elf \
+    -scriptPath ultron/adapters/ghidra/scripts \
+    -postScript UltronExport.py /tmp/export 40 "" -deleteProject
 
 # anywhere
-yugen -P ./work import-ghidra /tmp/export --target ./target.elf
+ultron -P ./work import-ghidra /tmp/export --target ./target.elf
 ```
 
-`YugenExport.py` runs inside Ghidra's own interpreter (Jython 2.7, or CPython
+`UltronExport.py` runs inside Ghidra's own interpreter (Jython 2.7, or CPython
 under PyGhidra) and stays in the subset both accept.
 
 ### binwalk
@@ -501,10 +509,10 @@ A deliberately narrow interface: five question types, and anything else is
 declined rather than answered badly.
 
 ```bash
-yugen ask --list                              # what it answers
-yugen ask "what third-party components are in this image?"
-yugen ask "is this binary hardened?" --object bin/busybox
-yugen ask "what is the attack surface?"
+ultron ask --list                              # what it answers
+ultron ask "what third-party components are in this image?"
+ultron ask "is this binary hardened?" --object bin/busybox
+ultron ask "what is the attack surface?"
 ```
 
 | Question type | Answers from |
@@ -515,7 +523,7 @@ yugen ask "what is the attack surface?"
 | `suspicious_indicators` | `suspicious_string` |
 | `binary_hardening` | `binary_hardening` |
 
-The same surface is available to agents as the `yugen_ask` MCP tool, returning
+The same surface is available to agents as the `ultron_ask` MCP tool, returning
 the identical structured record. Why no language model:
 [ADR 0006](docs/adr/0006-narrow-nl-without-a-model.md).
 
@@ -526,8 +534,8 @@ imports `system()`" from "and `run_diagnostics` ran".
 
 > **`qemu-user` is an emulator, not a sandbox.** Its system calls pass through
 > to the host kernel, so a traced binary can do anything a native process could.
-> Yugen never executes a target implicitly: `yugen analyze` will not do it,
-> and `yugen trace` requires `--allow-execution`. Use a disposable VM or
+> Ultron never executes a target implicitly: `ultron analyze` will not do it,
+> and `ultron trace` requires `--allow-execution`. Use a disposable VM or
 > container. See [ADR 0007](docs/adr/0007-emulation-is-opt-in.md).
 
 ```bash
@@ -535,7 +543,7 @@ imports `system()`" from "and `run_diagnostics` ran".
 qemu-arm -d exec,nochain -D trace.log ./target
 
 # anywhere - executes nothing
-yugen import-trace trace.log --object bin/target
+ultron import-trace trace.log --object bin/target
 ```
 
 Recording and importing are split exactly as they are for Ghidra. The parser
@@ -550,19 +558,19 @@ The MCP server is the interface future agents work against, and it is a peer of
 the CLI — both are thin front ends over one library.
 
 ```bash
-yugen mcp              # stdio JSON-RPC
-yugen mcp --read-only  # hide and refuse every write tool
+ultron mcp              # stdio JSON-RPC
+ultron mcp --read-only  # hide and refuse every write tool
 ```
 
 Twenty-one tools: inventory, artifact and claim queries, string search,
 decompilation retrieval, graph traversal, schema discovery, provenance,
-`yugen_ask` for the question interface, plus `yugen_submit_claim` and
-`yugen_annotate` for writes. Agent-submitted claims go through exactly the
+`ultron_ask` for the question interface, plus `ultron_submit_claim` and
+`ultron_annotate` for writes. Agent-submitted claims go through exactly the
 validation an adapter does and land as `proposed`.
 
 ## Git-friendly export
 
-`yugen export` writes two trees, and the split is the point:
+`ultron export` writes two trees, and the split is the point:
 
 - **`graph/`** — artifacts, claims, links. Content-addressed, sorted by id, no
   timestamps or run ids. Two independent analyses of the same bytes produce
@@ -575,7 +583,7 @@ validation an adapter does and land as `proposed`.
 Ground truth lives in `eval/suites/*.json`:
 
 ```bash
-$ yugen eval
+$ ultron eval
 [PASS] elf_sample       required 22/22   recall 1.00   false positives 0
 [PASS] firmware_image   required 12/12   recall 1.00   false positives 0
 ```
@@ -594,7 +602,7 @@ negative controls in the test suite — a harness that cannot fail proves nothin
 ## Layout
 
 ```
-yugen/
+ultron/
   canonical.py       deterministic serialization, hashing, id minting
   agents/            specialist agents: local-only LLM backend, secrets triage
   evidence/          artifact kinds, claim predicates, and their invariants
@@ -632,6 +640,8 @@ tests/               368 tests
   - [0007](docs/adr/0007-emulation-is-opt-in.md) Emulation never runs implicitly
   - [0008](docs/adr/0008-cartography-scope.md) Phase 2 lands as four narrow, real capabilities
   - [0009](docs/adr/0009-approval-is-cli-only.md) Approval and rejection are never exposed as MCP tools
+  - [0010](docs/adr/0010-specialist-agents-are-local-and-cli-only.md) Specialist agents are local-only and CLI-only
+  - [0011](docs/adr/0011-rename-to-ultron-ecosystem-agent.md) Rename to Ultron, joining a personal multi-agent ecosystem
 
 ## A note on the sample data
 

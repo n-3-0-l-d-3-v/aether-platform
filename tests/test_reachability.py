@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import os
 
-from yugen.adapters.ghidra import GhidraAdapter
-from yugen.adapters.qemu import QemuAdapter
-from yugen.adapters.triage import TriageAdapter
-from yugen.cartography import link_imports
-from yugen.cartography.reachability import trace_cross_binary_reachability
+from ultron.adapters.ghidra import GhidraAdapter
+from ultron.adapters.qemu import QemuAdapter
+from ultron.adapters.triage import TriageAdapter
+from ultron.cartography import link_imports
+from ultron.cartography.reachability import trace_cross_binary_reachability
 
 
 def _fully_analysed(project, elf_sample, ghidra_export_dir, qemu_traces):
@@ -160,8 +160,8 @@ def test_ambiguous_providers_produce_a_reachability_claim_per_candidate(
 
 
 def test_cli_reach_reports_sinks(tmp_path, elf_sample, ghidra_export_dir, qemu_traces, capsys):
-    from yugen.cli import main
-    from yugen.project import Project
+    from ultron.cli import main
+    from ultron.project import Project
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -182,7 +182,7 @@ def test_cli_reach_reports_sinks(tmp_path, elf_sample, ghidra_export_dir, qemu_t
 
 
 def test_mcp_reach_returns_the_reachable_list(project, elf_sample, ghidra_export_dir, qemu_traces):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     _fully_analysed(project, elf_sample, ghidra_export_dir, qemu_traces)
     _add_provider(project, ["strcpy", "system"])
@@ -194,7 +194,7 @@ def test_mcp_reach_returns_the_reachable_list(project, elf_sample, ghidra_export
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {"name": "yugen_reach", "arguments": {}},
+            "params": {"name": "ultron_reach", "arguments": {}},
         }
     )["result"]
     payload = response["structuredContent"]
@@ -204,7 +204,7 @@ def test_mcp_reach_returns_the_reachable_list(project, elf_sample, ghidra_export
 
 
 def test_mcp_reach_is_hidden_and_refused_read_only(project):
-    from yugen.mcp.server import MCPServer
+    from ultron.mcp.server import MCPServer
 
     with project.run(tool="t", tool_version="1", adapter="test") as rc:
         rc.artifact(
@@ -217,4 +217,4 @@ def test_mcp_reach_is_hidden_and_refused_read_only(project):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )["result"]["tools"]
     }
-    assert "yugen_reach" not in names
+    assert "ultron_reach" not in names

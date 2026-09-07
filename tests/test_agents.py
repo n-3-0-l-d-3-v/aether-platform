@@ -14,10 +14,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from yugen.agents.backend import DEFAULT_OLLAMA_HOST, FakeLLMBackend, OllamaBackend, probe
-from yugen.errors import AdapterUnavailable
-from yugen.evidence.models import EvidenceRef
-from yugen.review import pending
+from ultron.agents.backend import DEFAULT_OLLAMA_HOST, FakeLLMBackend, OllamaBackend, probe
+from ultron.errors import AdapterUnavailable
+from ultron.evidence.models import EvidenceRef
+from ultron.review import pending
 
 
 def _make_file(rc, path="bin/app"):
@@ -33,7 +33,7 @@ def _make_string(rc, file_artifact, text, addr):
 
 def _seed_strings(project, texts):
     """Write a file artifact and one string artifact per text; return the file id."""
-    from yugen.agents.secrets import TOOL_NAME  # noqa: F401  (import sanity)
+    from ultron.agents.secrets import TOOL_NAME  # noqa: F401  (import sanity)
 
     with project.run(tool="t", tool_version="1", adapter="test") as rc:
         f = _make_file(rc)
@@ -46,7 +46,7 @@ def _seed_strings(project, texts):
 
 
 def test_a_flagged_secret_becomes_one_proposed_claim(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     object_id = _seed_strings(project, ["totally_normal_string", "sk_live_obfuscated_credential_blob"])
 
@@ -65,7 +65,7 @@ def test_a_flagged_secret_becomes_one_proposed_claim(project):
     assert claim["predicate"] == "contains_hardcoded_secret"
     assert claim["status"] == "proposed"
     assert claim["statement"]["secret_kind"] == "api_token"
-    assert claim["statement"]["detector"] == "agent:yugen-agent-secrets"
+    assert claim["statement"]["detector"] == "agent:ultron-agent-secrets"
     # Never the raw value, always a redacted preview.
     assert "sk_live_obfuscated_credential_blob" not in claim["statement"]["redacted_preview"]
     producer_kinds = {a["producer_kind"] for a in claim["attestations"]}
@@ -76,7 +76,7 @@ def test_a_flagged_secret_becomes_one_proposed_claim(project):
 
 
 def test_a_flagged_suspicious_string_becomes_one_proposed_claim(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     object_id = _seed_strings(project, ["weird-shaped-endpoint-reference"])
 
@@ -90,14 +90,14 @@ def test_a_flagged_suspicious_string_becomes_one_proposed_claim(project):
     assert claim["predicate"] == "suspicious_string"
     assert claim["status"] == "proposed"
     assert claim["statement"]["category"] == "url"
-    assert claim["statement"]["detector"] == "agent:yugen-agent-secrets"
+    assert claim["statement"]["detector"] == "agent:ultron-agent-secrets"
 
 
 # -- defensive parsing ----------------------------------------------------
 
 
 def test_malformed_json_is_skipped_not_raised(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     object_id = _seed_strings(project, ["one string"])
     backend = FakeLLMBackend("this is not json at all")
@@ -108,7 +108,7 @@ def test_malformed_json_is_skipped_not_raised(project):
 
 
 def test_malformed_items_within_a_valid_list_are_skipped_individually(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     object_id = _seed_strings(project, ["string a", "string b"])
     backend = FakeLLMBackend(
@@ -127,7 +127,7 @@ def test_malformed_items_within_a_valid_list_are_skipped_individually(project):
 
 
 def test_one_malformed_batch_does_not_abort_a_later_batch(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     texts = [f"string {i}" for i in range(4)]
     object_id = _seed_strings(project, texts)
@@ -152,7 +152,7 @@ def test_one_malformed_batch_does_not_abort_a_later_batch(project):
 
 
 def test_low_confidence_items_are_skipped_and_counted(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     object_id = _seed_strings(project, ["quiet string"])
     backend = FakeLLMBackend(
@@ -165,7 +165,7 @@ def test_low_confidence_items_are_skipped_and_counted(project):
 
 
 def test_max_claims_bounds_proposals_even_when_more_are_flagged(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
     texts = [f"secret-looking-{i}" for i in range(5)]
     object_id = _seed_strings(project, texts)
@@ -187,9 +187,9 @@ def test_max_claims_bounds_proposals_even_when_more_are_flagged(project):
 
 
 def test_a_string_already_claimed_is_not_re_flagged(project):
-    from yugen.agents.secrets import run_secrets_triage
+    from ultron.agents.secrets import run_secrets_triage
 
-    with project.run(tool="yugen-triage", tool_version="1", adapter="triage") as rc:
+    with project.run(tool="ultron-triage", tool_version="1", adapter="triage") as rc:
         f = _make_file(rc)
         already = _make_string(rc, f, "AKIAABCDEFGHIJKLMNOP", addr=0x2000)
         rc.add_claim(
@@ -198,7 +198,7 @@ def test_a_string_already_claimed_is_not_re_flagged(project):
             [EvidenceRef(already.artifact_id, "locus")],
             subject_id=f.artifact_id,
             confidence=0.95,
-            producer="yugen-triage",
+            producer="ultron-triage",
             producer_kind="tool",
         )
         fresh = _make_string(rc, f, "another unrelated string", addr=0x2100)
@@ -299,7 +299,7 @@ def test_ollama_backend_raises_on_malformed_json_body():
 
 
 def test_cli_agent_secrets_fails_cleanly_when_ollama_is_unreachable(tmp_path, capsys):
-    from yugen.cli import main
+    from ultron.cli import main
 
     root = str(tmp_path / "proj")
     main(["init", root])
@@ -326,7 +326,7 @@ def test_cli_agent_secrets_fails_cleanly_when_ollama_is_unreachable(tmp_path, ca
 
 
 def test_cli_agent_secrets_help_does_not_crash():
-    from yugen.cli import main
+    from ultron.cli import main
 
     with pytest.raises(SystemExit) as exc_info:
         main(["agent", "secrets", "--help"])
@@ -338,7 +338,7 @@ def test_cli_agent_secrets_help_does_not_crash():
 
 def test_no_mcp_tool_exposes_the_secrets_agent():
     """First Phase 3 specialist agent is CLI-only; no new MCP tool exists."""
-    from yugen.mcp import tools
+    from ultron.mcp import tools
 
     names = set(tools.TOOLS)
     assert not any("agent" in name.lower() for name in names)
