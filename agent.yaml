@@ -1,0 +1,7 @@
+name: Ultron
+role: reverse-engineering-and-security
+default_sensitivity_tier: private
+entrypoint: ultron
+health_check_command: ultron --health
+vault_write_path: vault/Ultron/
+sandboxed: true
